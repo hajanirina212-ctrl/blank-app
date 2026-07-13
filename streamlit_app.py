@@ -1,760 +1,1072 @@
-import React, { useState } from "react";
-import { Plus, Target, Calendar, Award, Sparkles, CheckCircle2, Circle, ChevronRight, ChevronDown, ListTodo, Loader2, ArrowRight, Database, HelpCircle, ShieldCheck, Trash2, Settings, Info } from "lucide-react";
-import { Goal, LifeDomain, Priority, Difficulty, TaskStatus, KaizenMicroTask, Project, ProjectStage, Task } from "../types";
+import streamlit as st
+import datetime
+import json
+import random
+import os
+import urllib.request
+import urllib.error
 
-interface GoalsManagerProps {
-  goals: Goal[];
-  onAddGoal: (goal: Goal) => void;
-  onUpdateGoalProgress: (goalId: string, progress: number) => void;
-  onUpdateGoalProjects: (goalId: string, projects: Project[]) => void;
-  onAddXP: (amount: number) => void;
-}
+# Page config & Custom Tab Title
+st.set_page_config(
+    page_title="KAIZENOS • High Density System",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-export default function GoalsManager({
-  goals,
-  onAddGoal,
-  onUpdateGoalProgress,
-  onUpdateGoalProjects,
-  onAddXP
-}: GoalsManagerProps) {
-  const [showAddForm, setShowAddForm] = useState<boolean>(false);
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(goals.length > 0 ? goals[0].id : null);
-  const [decomposingGoalId, setDecomposingGoalId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"simple" | "advanced">("simple");
-  const [newMicroTaskName, setNewMicroTaskName] = useState<string>("");
-
-  // Form states
-  const [name, setName] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [why, setWhy] = useState<string>("");
-  const [targetDate, setTargetDate] = useState<string>("");
-  const [priority, setPriority] = useState<Priority>(Priority.MEDIUM);
-  const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM);
-  const [domain, setDomain] = useState<LifeDomain>(LifeDomain.CAREER);
-
-  const handleCreateGoal = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !why || !targetDate) {
-      alert("S'il te plaît, remplis toutes les informations de l'objectif.");
-      return;
-    }
-
-    const newGoal: Goal = {
-      id: Math.random().toString(),
-      name,
-      description,
-      why,
-      startDate: new Date().toISOString().split("T")[0],
-      targetDate,
-      priority,
-      difficulty,
-      domain,
-      progress: 0,
-      projects: []
-    };
-
-    onAddGoal(newGoal);
-    setSelectedGoalId(newGoal.id); // Ouvrir immédiatement
-    setName("");
-    setDescription("");
-    setWhy("");
-    setTargetDate("");
-    setShowAddForm(false);
-  };
-
-  // Lancer la décomposition automatique de l'objectif par l'IA
-  const handleAIDecompose = async (goalId: string) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
-
-    setDecomposingGoalId(goalId);
-
-    try {
-      const response = await fetch("/api/ai/decompose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          goalName: goal.name,
-          goalDescription: goal.description,
-          domain: goal.domain,
-          priority: goal.priority,
-          difficulty: goal.difficulty,
-          why: goal.why
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("Impossible de joindre le serveur d'IA.");
-      }
-
-      const data = await response.json();
-
-      // Convertir la réponse IA au format de types attendu
-      const newProject: Project = {
-        id: Math.random().toString(),
-        name: data.projectName || `Projet Kaizen - ${goal.name}`,
-        description: data.projectDescription || "",
-        completed: false,
-        stages: (data.stages || []).map((stage: any, sIdx: number) => ({
-          id: `stage-${sIdx}-${Math.random()}`,
-          name: stage.name,
-          description: stage.description,
-          completed: false,
-          tasks: (stage.tasks || []).map((task: any, tIdx: number) => ({
-            id: `task-${sIdx}-${tIdx}-${Math.random()}`,
-            name: task.name,
-            description: task.description,
-            status: TaskStatus.TODO,
-            postponeCount: 0,
-            deepWorkHoursPlanned: task.deepWorkHoursPlanned || 1,
-            deepWorkHoursActual: 0,
-            dueDate: goal.targetDate,
-            microTasks: (task.microTasks || []).map((mt: any, mIdx: number) => ({
-              id: `mt-${sIdx}-${tIdx}-${mIdx}-${Math.random()}`,
-              name: mt.name,
-              completed: false
-            }))
-          }))
-        }))
-      };
-
-      onUpdateGoalProjects(goalId, [newProject]);
-      onAddXP(100); // Gagne de l'XP pour avoir initialisé le plan d'action !
-      
-      // Recalculer le pourcentage
-      recalculateProgressForGoal(goalId, [newProject]);
-    } catch (error: any) {
-      console.error(error);
-      alert("Erreur de décomposition IA : " + error.message);
-    } finally {
-      setDecomposingGoalId(null);
-    }
-  };
-
-  // Recalculer le pourcentage de progression global basé sur les micro-tâches complétées
-  const recalculateProgressForGoal = (goalId: string, updatedProjects: Project[]) => {
-    let totalMT = 0;
-    let completedMT = 0;
-    updatedProjects.forEach(p => {
-      p.stages.forEach(s => {
-        s.tasks.forEach(t => {
-          t.microTasks.forEach(mt => {
-            totalMT++;
-            if (mt.completed) completedMT++;
-          });
-        });
-      });
-    });
-
-    const newProgress = totalMT > 0 ? Math.round((completedMT / totalMT) * 100) : 0;
-    onUpdateGoalProgress(goalId, newProgress);
-  };
-
-  // Basculer l'état d'une micro-tâche Kaizen
-  const handleToggleMicroTask = (goalId: string, projectId: string, stageId: string, taskId: string, microTaskId: string) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
-
-    const updatedProjects = goal.projects.map(p => {
-      if (p.id !== projectId) return p;
-
-      const updatedStages = p.stages.map(s => {
-        if (s.id !== stageId) return s;
-
-        const updatedTasks = s.tasks.map(t => {
-          if (t.id !== taskId) return t;
-
-          const updatedMicroTasks = t.microTasks.map(mt => {
-            if (mt.id !== microTaskId) return mt;
-            const nextCompleted = !mt.completed;
-            if (nextCompleted) onAddXP(10); // +10 XP par micro-action Kaizen !
-            return { ...mt, completed: nextCompleted };
-          });
-
-          // Si toutes les micro-tâches sont complétées, la tâche passe automatiquement à DONE
-          const allDone = updatedMicroTasks.every(mt => mt.completed);
-          const nextStatus = allDone ? TaskStatus.DONE : t.status === TaskStatus.DONE ? TaskStatus.IN_PROGRESS : t.status;
-
-          return { ...t, microTasks: updatedMicroTasks, status: nextStatus };
-        });
-
-        const stageCompleted = updatedTasks.every(t => t.status === TaskStatus.DONE);
-        return { ...s, tasks: updatedTasks, completed: stageCompleted };
-      });
-
-      const projectCompleted = updatedStages.every(s => s.completed);
-      return { ...p, stages: updatedStages, completed: projectCompleted };
-    });
-
-    onUpdateGoalProjects(goalId, updatedProjects);
-    recalculateProgressForGoal(goalId, updatedProjects);
-  };
-
-  // Ajouter une micro-tâche personnalisée directement dans l'interface simple
-  const handleAddCustomMicroTask = (goalId: string) => {
-    if (!newMicroTaskName.trim()) return;
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
-
-    let updatedProjects = goal.projects ? [...goal.projects] : [];
+# Helper for elegant mock plans (high quality custom fallback)
+def generate_mock_kaizen_plan(goal_name, why_deep, domain):
+    name_lower = goal_name.lower()
     
-    if (updatedProjects.length === 0) {
-      updatedProjects = [{
-        id: "proj-" + Math.random().toString(36).substr(2, 9),
-        name: `Plan d'action - ${goal.name}`,
-        description: "Généré automatiquement pour stocker vos micro-actions",
-        completed: false,
-        stages: [{
-          id: "stage-" + Math.random().toString(36).substr(2, 9),
-          name: "Vos Actions Prioritaires",
-          description: "La philosophie Kaizen du pas à pas",
-          completed: false,
-          tasks: [{
-            id: "task-" + Math.random().toString(36).substr(2, 9),
-            name: "Micro-Tâches",
-            description: "Actions rapides",
-            status: TaskStatus.TODO,
-            postponeCount: 0,
-            deepWorkHoursPlanned: 1,
-            deepWorkHoursActual: 0,
-            dueDate: goal.targetDate,
-            microTasks: []
-          }]
-        }]
-      }];
+    if "site" in name_lower or "saas" in name_lower or "web" in name_lower or "app" in name_lower or "cod" in name_lower or "programm" in name_lower or "tech" in name_lower:
+        p_name = f"Développement Agile de {goal_name}"
+        desc = "Une approche pas-à-pas pour lancer une application fonctionnelle de manière incrémentale."
+        stages = [
+            {
+                "name": "Étape 1 : Prototype d'Interface & Design",
+                "description": "Visualiser le produit final sans écrire de code lourd.",
+                "tasks": [
+                    {
+                        "name": "Maquetter l'écran principal",
+                        "description": "Dessiner les sections de l'application",
+                        "microTasks": [
+                            {"name": "Dessiner les 3 composants clés sur papier"},
+                            {"name": "Lister les boutons interactifs principaux"},
+                            {"name": "Choisir une palette de couleurs élégante (Slate/Violet)"}
+                        ]
+                    },
+                    {
+                        "name": "Configurer l'environnement de code",
+                        "description": "Avoir un serveur de développement prêt",
+                        "microTasks": [
+                            {"name": "Créer le dossier du projet"},
+                            {"name": "Initialiser le dépôt Git"},
+                            {"name": "Lancer un serveur de test local 'Hello World'"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 2 : Core logique & Base de données",
+                "description": "Donner vie au projet en gérant les données.",
+                "tasks": [
+                    {
+                        "name": "Modéliser la structure de données",
+                        "description": "Définir les champs requis",
+                        "microTasks": [
+                            {"name": "Lister les variables requises (id, date, statut)"},
+                            {"name": "Créer un exemple de JSON de test"},
+                            {"name": "Écrire les fonctions de lecture locales"}
+                        ]
+                    },
+                    {
+                        "name": "Écrire l'API de base",
+                        "description": "Permettre la sauvegarde locale",
+                        "microTasks": [
+                            {"name": "Créer la fonction d'ajout d'élément"},
+                            {"name": "Créer la fonction de suppression d'élément"},
+                            {"name": "Vérifier le chargement au démarrage"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 3 : Polissage & Déploiement",
+                "description": "Rendre l'application accessible et esthétique.",
+                "tasks": [
+                    {
+                        "name": "Améliorer l'interface utilisateur",
+                        "description": "Ajuster les espacements et contrastes",
+                        "microTasks": [
+                            {"name": "Vérifier la lisibilité sur mobile"},
+                            {"name": "Ajouter des transitions fluides au survol"},
+                            {"name": "Intégrer les icônes d'état et validations"}
+                        ]
+                    },
+                    {
+                        "name": "Lancer en production",
+                        "description": "Mettre l'application en ligne",
+                        "microTasks": [
+                            {"name": "Créer un compte d'hébergement gratuit"},
+                            {"name": "Configurer les variables d'environnement"},
+                            {"name": "Lancer le premier déploiement public"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    elif "langue" in name_lower or "anglais" in name_lower or "apprend" in name_lower or "étudi" in name_lower or "livre" in name_lower or "lire" in name_lower:
+        p_name = f"Rituel d'Apprentissage Actif : {goal_name}"
+        desc = "Intégrer l'apprentissage de manière organique sans surcharge mentale."
+        stages = [
+            {
+                "name": "Étape 1 : Immersion Initiale",
+                "description": "Habituer le cerveau à la nouvelle thématique.",
+                "tasks": [
+                    {
+                        "name": "Sélectionner les meilleures ressources",
+                        "description": "Filtrer pour ne garder que le contenu captivant",
+                        "microTasks": [
+                            {"name": "Trouver 2 podcasts de moins de 10 minutes"},
+                            {"name": "Identifier 1 chaîne YouTube de référence"},
+                            {"name": "Télécharger 1 application de fiches mémo"}
+                        ]
+                    },
+                    {
+                        "name": "Créer le rituel quotidien",
+                        "description": "Associer l'apprentissage à un signal existant",
+                        "microTasks": [
+                            {"name": "Choisir le moment idéal (ex: au petit déjeuner)"},
+                            {"name": "Préparer le support sur le bureau la veille"},
+                            {"name": "Lancer un chronomètre de 5 minutes d'essai"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 2 : Pratique Active",
+                "description": "Passer de la consommation passive à la production.",
+                "tasks": [
+                    {
+                        "name": "Prendre des notes simplifiées",
+                        "description": "Retenir l'essentiel en fiches courtes",
+                        "microTasks": [
+                            {"name": "Créer une fiche Notion ou papier"},
+                            {"name": "Écrire 3 concepts clés appris aujourd'hui"},
+                            {"name": "Expliquer un concept à voix haute pendant 1 minute"}
+                        ]
+                    },
+                    {
+                        "name": "Faire de petites sessions de mémorisation",
+                        "description": "Utiliser la répétition espacée",
+                        "microTasks": [
+                            {"name": "Créer ses 5 premières fiches de révision"},
+                            {"name": "Réviser les fiches de la veille en 2 minutes"},
+                            {"name": "Faire un mini-test d'auto-évaluation"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 3 : Consolidation & Usage Réel",
+                "description": "Mettre en pratique dans des situations concrètes.",
+                "tasks": [
+                    {
+                        "name": "Converser ou rédiger de manière libre",
+                        "description": "S'exprimer sans filtre ni peur du jugement",
+                        "microTasks": [
+                            {"name": "Rédiger un paragraphe de 3 phrases"},
+                            {"name": "S'enregistrer sur son dictaphone pendant 30 secondes"},
+                            {"name": "Traduire mentalement 5 objets autour de soi"}
+                        ]
+                    },
+                    {
+                        "name": "Faire le bilan de confiance",
+                        "description": "Mesurer sa progression de 1%",
+                        "microTasks": [
+                            {"name": "Lister 5 expressions maîtrisées de plus"},
+                            {"name": "Célébrer la régularité du rituel"},
+                            {"name": "Planifier l'étape suivante d'apprentissage"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    elif "sport" in name_lower or "sant" in name_lower or "run" in name_lower or "muscl" in name_lower or "poids" in name_lower:
+        p_name = f"Transformation Physique Progressive : {goal_name}"
+        desc = "Bâtir un corps sain à travers des actions infimes mais régulières."
+        stages = [
+            {
+                "name": "Étape 1 : Réduire la Friction au Minimum",
+                "description": "S'installer dans l'action sans effort mental.",
+                "tasks": [
+                    {
+                        "name": "Préparer l'équipement",
+                        "description": "Supprimer les obstacles matériels",
+                        "microTasks": [
+                            {"name": "Placer ses vêtements de sport à côté du lit la veille"},
+                            {"name": "Remplir une gourde d'eau fraîche"},
+                            {"name": "Sélectionner une playlist dynamique de 15 minutes"}
+                        ]
+                    },
+                    {
+                        "name": "Commencer ridiculement petit",
+                        "description": "Seulement 5 minutes d'effort",
+                        "microTasks": [
+                            {"name": "Faire 5 pompes après s'être levé"},
+                            {"name": "Faire 2 minutes d'étirements doux"},
+                            {"name": "Marcher activement autour du pâté de maisons"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 2 : Créer un Momentum",
+                "description": "Stabiliser la régularité avant d'augmenter l'intensité.",
+                "tasks": [
+                    {
+                        "name": "Fixer le créneau dans la journée",
+                        "description": "Rendre le temps non négociable",
+                        "microTasks": [
+                            {"name": "Bloquer 15 minutes dans l'agenda de demain"},
+                            {"name": "Associer la séance à la fin d'une tâche de travail"},
+                            {"name": "Suivre sa complétion sur le calendrier"}
+                        ]
+                    },
+                    {
+                        "name": "Augmenter l'intensité en douceur",
+                        "description": "Appliquer la règle du 1% de surcharge progressive",
+                        "microTasks": [
+                            {"name": "Ajouter 1 répétition à chaque série"},
+                            {"name": "Courir 1 minute de plus que la dernière fois"},
+                            {"name": "Tenir 5 secondes de plus en gainage"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 3 : Alignement Nutrition & Récupération",
+                "description": "Pérenniser l'énergie de manière globale.",
+                "tasks": [
+                    {
+                        "name": "Améliorer les apports quotidiens",
+                        "description": "Petits ajustements nutritionnels faciles",
+                        "microTasks": [
+                            {"name": "Remplacer 1 soda par un grand verre d'eau"},
+                            {"name": "Ajouter une portion de légumes au déjeuner"},
+                            {"name": "Lister 3 collations saines et rapides à préparer"}
+                        ]
+                    },
+                    {
+                        "name": "Verrouiller le sommeil réparateur",
+                        "description": "Améliorer la qualité de la nuit",
+                        "microTasks": [
+                            {"name": "Couper les écrans 15 minutes avant le coucher"},
+                            {"name": "Aérer la chambre pendant 5 minutes"},
+                            {"name": "Faire 3 respirations abdominales lentes dans le noir"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    else:
+        p_name = f"Plan d'Action Kaizen : {goal_name}"
+        desc = "Méthodologie universelle du pas-à-pas pour éliminer la procrastination."
+        stages = [
+            {
+                "name": "Étape 1 : Clarté & Préparation",
+                "description": "Définir précisément le périmètre d'action.",
+                "tasks": [
+                    {
+                        "name": "Cadrer le périmètre",
+                        "description": "Rendre l'objectif concret et mesurable",
+                        "microTasks": [
+                            {"name": "Rédiger le résultat idéal en 1 sentence"},
+                            {"name": "Lister les 3 plus grands obstacles potentiels"},
+                            {"name": "Écrire la première action de 5 minutes"}
+                        ]
+                    },
+                    {
+                        "name": "Rassembler les outils",
+                        "description": "Éviter les interruptions techniques",
+                        "microTasks": [
+                            {"name": "Créer le dossier ou espace de travail dédié"},
+                            {"name": "Trouver ou marquer les liens utiles"},
+                            {"name": "Éteindre les notifications de téléphone pour 15 min"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 2 : Lancement & Premières Victoires",
+                "description": "Engager l'action rapide de manière ultra-simple.",
+                "tasks": [
+                    {
+                        "name": "Passer le cap des 5 premières minutes",
+                        "description": "Briser la friction psychologique",
+                        "microTasks": [
+                            {"name": "Lancer un minuteur de 5 minutes"},
+                            {"name": "Faire la toute première action sans chercher la perfection"},
+                            {"name": "Prendre une inspiration profonde pour s'ancrer"}
+                        ]
+                    },
+                    {
+                        "name": "Installer la régularité",
+                        "description": "Construire l'habitude jour après jour",
+                        "microTasks": [
+                            {"name": "Fixer un créneau horaire fixe de 15 minutes"},
+                            {"name": "Associer la séance à un déclencheur automatique"},
+                            {"name": "Noter sa première session sur le calendrier"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Étape 3 : Optimisation & Amélioration de 1%",
+                "description": "Raffiner et pérenniser la méthode.",
+                "tasks": [
+                    {
+                        "name": "Mesurer les progrès réels",
+                        "description": "Visualiser les petites étapes franchies",
+                        "microTasks": [
+                            {"name": "Cocher les tâches complétées"},
+                            {"name": "Lister 2 apprentissages clés de la semaine"},
+                            {"name": "Ajuster la vitesse pour éviter l'épuisement"}
+                        ]
+                    },
+                    {
+                        "name": "Verrouiller l'habitude durablement",
+                        "description": "Incarner la nouvelle identité de réussite",
+                        "microTasks": [
+                            {"name": "Partager sa victoire de la semaine avec un proche"},
+                            {"name": "Rédiger sa charte d'engagement pour le mois"},
+                            {"name": "Planifier la prochaine séance de 15 minutes"}
+                        ]
+                    }
+                ]
+            }
+        ]
+
+    return {
+        "projectName": p_name,
+        "projectDescription": desc,
+        "stages": stages
     }
 
-    const updated = updatedProjects.map((p, pIdx) => {
-      if (pIdx !== 0) return p;
-      return {
-        ...p,
-        stages: p.stages.map((s, sIdx) => {
-          if (sIdx !== 0) return s;
-          return {
-            ...s,
-            tasks: s.tasks.map((t, tIdx) => {
-              if (tIdx !== 0) return t;
-              return {
-                ...t,
-                microTasks: [
-                  ...t.microTasks,
-                  {
-                    id: "mt-" + Math.random().toString(36).substr(2, 9),
-                    name: newMicroTaskName.trim(),
-                    completed: false
-                  }
-                ]
-              };
-            })
-          };
-        })
-      };
-    });
+def decompose_goal_with_gemini(goal_name, why_deep, domain):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return generate_mock_kaizen_plan(goal_name, why_deep, domain)
+        
+    prompt = f"""
+    En tant qu'expert mondial de la méthode Kaizen, d'Atomic Habits (James Clear) et de la productivité :
+    Décompose l'objectif suivant en 1 projet clé, contenant 3 étapes progressives.
+    Chaque étape doit contenir 2 tâches d'action.
+    Chaque tâche doit contenir exactement 3 micro-tâches Kaizen ultra-précises, réalisables en moins de 15 minutes.
+    
+    Détails de l'objectif :
+    - Nom : {goal_name}
+    - Pourquoi profond (Why) : {why_deep}
+    - Domaine de vie : {domain}
+    
+    Respecte strictement la philosophie Kaizen : les micro-tâches de moins de 15 minutes doivent être extrêmement faciles à commencer pour éliminer TOUTE friction psychologique de démarrage.
+    
+    Réponds EXCLUSIVEMENT sous forme de JSON valide correspondant à la structure ci-dessous.
+    """
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "projectName": {"type": "STRING"},
+                    "projectDescription": {"type": "STRING"},
+                    "stages": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "name": {"type": "STRING"},
+                                "description": {"type": "STRING"},
+                                "tasks": {
+                                    "type": "ARRAY",
+                                    "items": {
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "name": {"type": "STRING"},
+                                            "description": {"type": "STRING"},
+                                            "microTasks": {
+                                                "type": "ARRAY",
+                                                "items": {
+                                                    "type": "OBJECT",
+                                                    "properties": {
+                                                        "name": {"type": "STRING"}
+                                                    },
+                                                    "required": ["name"]
+                                                }
+                                            }
+                                        },
+                                        "required": ["name", "description", "microTasks"]
+                                    }
+                                }
+                            },
+                            "required": ["name", "description", "tasks"]
+                        }
+                    }
+                },
+                "required": ["projectName", "projectDescription", "stages"]
+            }
+        }
+    }
+    
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    
+    try:
+        with urllib.request.urlopen(req, timeout=12) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(text)
+    except Exception as e:
+        return generate_mock_kaizen_plan(goal_name, why_deep, domain)
 
-    onUpdateGoalProjects(goalId, updated);
-    setNewMicroTaskName("");
-    onAddXP(5); // +5 XP pour l'autodiscipline d'ajouter ses tâches
-    recalculateProgressForGoal(goalId, updated);
-  };
+# Initialize Session States
+if "initialized" not in st.session_state:
+    st.session_state["initialized"] = True
+    st.session_state["level"] = 1
+    st.session_state["xp"] = 150
+    st.session_state["streak"] = 12
+    st.session_state["deep_work_hours"] = 2.0
+    st.session_state["target_deep_work"] = 4.0
+    
+    # Vision
+    st.session_state["identity"] = "Je suis un créateur rigoureux et concentré qui s'améliore de 1% par jour."
+    st.session_state["one_year_vision"] = "Consolider mes rituels de micro-actions quotidiennes et maîtriser l'art de démarrer sans friction."
+    st.session_state["long_term_vision"] = "Incarner pleinement la philosophie Kaizen et accomplir de grands projets grâce aux petits pas."
+    
+    # Pre-populated initial Goal with full Kaizen action plan
+    st.session_state["goals"] = [
+        {
+            "id": "init-goal",
+            "name": "Lancer ma propre application web professionnelle",
+            "description": "Créer et publier une application moderne simple en ligne pour mes clients.",
+            "why": "Pour être indépendant financièrement, libre de mon temps et fier d'avoir construit un outil utile.",
+            "startDate": "2026-07-13",
+            "targetDate": "2026-10-31",
+            "domain": "Carrière / Professionnel",
+            "progress": 33,
+            "projects": [
+                {
+                    "id": "init-proj",
+                    "name": "Projet de Lancement KaizenOS",
+                    "description": "Planification progressive et agile conçue pour éliminer la procrastination.",
+                    "completed": False,
+                    "stages": [
+                        {
+                            "id": "stage-1",
+                            "name": "Étape 1 : Cadrage du Produit & Prototype",
+                            "description": "Poser les bases visuelles et conceptuelles de l'application.",
+                            "completed": False,
+                            "stages": [],
+                            "tasks": [
+                                {
+                                    "id": "task-1-1",
+                                    "name": "Spécifier l'idée",
+                                    "description": "Définir l'architecture et l'audience cible.",
+                                    "status": "TODO",
+                                    "microTasks": [
+                                        {"id": "mt-1-1-1", "name": "Créer le fichier Notion/Word principal", "completed": True},
+                                        {"id": "mt-1-1-2", "name": "Lister les 3 fonctionnalités absolument vitales", "completed": True},
+                                        {"id": "mt-1-1-3", "name": "Rédiger le pitch d'identité en 1 paragraphe", "completed": False}
+                                    ]
+                                },
+                                {
+                                    "id": "task-1-2",
+                                    "name": "Maquetter la page d'accueil",
+                                    "description": "Dessiner l'expérience utilisateur.",
+                                    "status": "TODO",
+                                    "microTasks": [
+                                        {"id": "mt-1-2-1", "name": "Prendre une feuille blanche et crayonner les 3 blocs principaux", "completed": False},
+                                        {"id": "mt-1-2-2", "name": "Choisir une palette de 2 couleurs dominantes", "completed": False},
+                                        {"id": "mt-1-2-3", "name": "Écrire le titre principal d'accroche", "completed": False}
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+    
+    st.session_state["habits"] = [
+        {"id": 1, "name": "Session Deep Work : Code sans distraction", "cue": "À 9h00 • Téléphone éteint", "category": "Professionnel", "done": True},
+        {"id": 2, "name": "Micro-action : Réviser 1 concept technique", "cue": "10 min • Immédiatement après mon café", "category": "Mindset", "done": False}
+    ]
+    
+    st.session_state["procrastinations"] = [
+        {"date": "2026-07-13", "task": "Acheter le nom de domaine de l'application", "trigger": "Peur d'échouer ou de dépenser pour rien", "cost": "Retard de lancement du projet", "win": "Ouvrir l'onglet d'enregistrement de domaine et juste chercher la disponibilité"}
+    ]
 
-  // Basculer le statut d'une tâche principale
-  const handleToggleTaskStatus = (goalId: string, projectId: string, stageId: string, taskId: string) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
+# Calculate levels and XP
+xp_needed = int(100 * (st.session_state["level"] ** 1.5))
+xp_percent = min(1.0, float(st.session_state["xp"]) / xp_needed)
 
-    const updatedProjects = goal.projects.map(p => {
-      if (p.id !== projectId) return p;
+total_habits = len(st.session_state["habits"])
+done_habits = sum(1 for h in st.session_state["habits"] if h["done"])
+discipline_score = int((done_habits / total_habits) * 100) if total_habits > 0 else 100
 
-      const updatedStages = p.stages.map(s => {
-        if (s.id !== stageId) return s;
+# Custom Style (High Contrast slate theme)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: #0B0F19 !important;
+        color: #E2E8F0 !important;
+        font-family: 'Inter', sans-serif !important;
+    }
+    
+    [data-testid="stHeader"] {
+        background: rgba(11, 15, 25, 0.9) !important;
+        backdrop-filter: blur(12px) !important;
+        border-bottom: 1px solid #1E293B !important;
+    }
+    
+    [data-testid="stSidebar"] {
+        background-color: #070A13 !important;
+        border-right: 1px solid #1E293B !important;
+    }
+    
+    .kaizen-card {
+        background-color: #111827;
+        border: 1px solid #1F2937;
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .database-card {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(129, 140, 248, 0.02) 100%);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+    }
 
-        const updatedTasks = s.tasks.map(t => {
-          if (t.id !== taskId) return t;
-          const nextStatus = t.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE;
-          
-          // Mettre également à jour toutes les micro-tâches
-          const updatedMicroTasks = t.microTasks.map(mt => ({
-            ...mt,
-            completed: nextStatus === TaskStatus.DONE
-          }));
+    .kaizen-header {
+        font-weight: 900;
+        font-size: 24px;
+        letter-spacing: -1px;
+        color: #F8FAFC;
+        margin-bottom: 15px;
+    }
+    
+    .kaizen-header span {
+        color: #6366F1;
+    }
 
-          if (nextStatus === TaskStatus.DONE) onAddXP(30); // +30 XP pour une tâche principale !
+    .identity-pill {
+        background: #111827;
+        border: 1px solid #1F2937;
+        padding: 12px 18px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+    }
 
-          return { ...t, status: nextStatus, microTasks: updatedMicroTasks };
-        });
+    .xp-bar {
+        width: 100%;
+        height: 6px;
+        background: #1F2937;
+        border-radius: 999px;
+        position: relative;
+        overflow: hidden;
+        margin-top: 8px;
+    }
 
-        const stageCompleted = updatedTasks.every(t => t.status === TaskStatus.DONE);
-        return { ...s, tasks: updatedTasks, completed: stageCompleted };
-      });
+    .xp-progress {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        background: #6366F1;
+        border-radius: 999px;
+    }
 
-      return { ...p, stages: updatedStages };
-    });
+    .mono {
+        font-family: 'JetBrains Mono', monospace;
+    }
 
-    onUpdateGoalProjects(goalId, updatedProjects);
-    recalculateProgressForGoal(goalId, updatedProjects);
-  };
+    .status-badge {
+        font-size: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        color: #818CF8;
+        background: rgba(99, 102, 241, 0.1);
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+</style>
+""", unsafe_allow_html=True)
 
-  // Extraire toutes les micro-tâches de l'objectif sous forme de liste plate
-  const getFlatMicroTasks = (goal: Goal) => {
-    const flatList: {
-      id: string;
-      name: string;
-      completed: boolean;
-      projectId: string;
-      stageId: string;
-      taskId: string;
-    }[] = [];
+# Helper function to recalculate progress
+def recalculate_goal_progress(goal_idx):
+    goal = st.session_state["goals"][goal_idx]
+    total_mt = 0
+    completed_mt = 0
+    if "projects" in goal and goal["projects"]:
+        for p in goal["projects"]:
+            for s in p["stages"]:
+                for t in s["tasks"]:
+                    for mt in t["microTasks"]:
+                        total_mt += 1
+                        if mt["completed"]:
+                            completed_mt += 1
+    
+    if total_mt > 0:
+        new_prog = int((completed_mt / total_mt) * 100)
+    else:
+        new_prog = 0
+    st.session_state["goals"][goal_idx]["progress"] = new_prog
 
-    goal.projects?.forEach(p => {
-      p.stages?.forEach(s => {
-        s.tasks?.forEach(t => {
-          t.microTasks?.forEach(mt => {
-            flatList.push({
-              id: mt.id,
-              name: mt.name,
-              completed: mt.completed,
-              projectId: p.id,
-              stageId: s.id,
-              taskId: t.id
-            });
-          });
-        });
-      });
-    });
-
-    return flatList;
-  };
-
-  return (
-    <div className="space-y-6" id="goals-manager-root">
-      {/* En-tête de la page */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/50 rounded-2xl border border-slate-800 p-6 backdrop-blur-sm shadow-xl">
-        <div>
-          <h2 className="text-xl font-sans font-bold text-white tracking-tight flex items-center gap-2">
-            <Target className="text-indigo-400 w-5 h-5 animate-pulse" />
-            Gestion d'Objectifs Simplifiée par l'IA
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Déclarez vos objectifs. L'IA s'occupe de concevoir instantanément vos micro-tâches de moins de 15 minutes.
-          </p>
+# SIDEBAR PORTRAIT
+with st.sidebar:
+    st.markdown('<div class="kaizen-header">🛡️ KAIZEN<span>OS</span></div>', unsafe_allow_html=True)
+    
+    # Progress Widget
+    st.markdown(f"""
+    <div class="identity-pill">
+        <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; tracking-wide">Avatar de Progrès</div>
+        <div style="font-size: 15px; font-weight: 800; color: #F1F5F9; margin-top: 4px;">Utilisateur • Level {st.session_state['level']}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #94A3B8; margin-top: 6px;">
+            <span>XP : {st.session_state['xp']} / {xp_needed}</span>
+            <span style="color: #34D399; font-weight: bold;">🔥 {st.session_state['streak']} Jours de Streak</span>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode(viewMode === "simple" ? "advanced" : "simple")}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono px-3.5 py-2 rounded-xl border border-slate-700 transition-all cursor-pointer"
-            id="btn-toggle-view-mode"
-            title="Basculer entre la vue simplifiée et la vue projets complexes"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            {viewMode === "simple" ? "Mode Avancé" : "Mode Simple (Conseillé)"}
-          </button>
-          {!showAddForm && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md hover:shadow-indigo-600/10 transition-all cursor-pointer"
-              id="btn-open-goal-form"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Nouvel Objectif
-            </button>
-          )}
+        <div class="xp-bar">
+            <div class="xp-progress" style="width: {xp_percent * 100}%;"></div>
         </div>
-      </div>
-
-      {/* Formulaire d'ajout d'objectif */}
-      {showAddForm && (
-        <form onSubmit={handleCreateGoal} className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 backdrop-blur-sm shadow-xl space-y-4" id="form-add-goal">
-          <h3 className="text-sm font-sans font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2.5">
-            Ajouter un Objectif
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Nom de l'objectif</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Lancer mon propre site internet, apprendre l'anglais, faire du sport..."
-                  className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none transition-all placeholder:text-slate-600"
-                  required
-                  id="input-goal-name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Description optionnelle</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Expliquez brièvement ce que vous souhaitez accomplir..."
-                  className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none transition-all placeholder:text-slate-600 h-24"
-                  id="input-goal-desc"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Pourquoi cet objectif est capital pour vous ? (Motivation profonde)</label>
-                <input
-                  type="text"
-                  value={why}
-                  onChange={(e) => setWhy(e.target.value)}
-                  placeholder="Ex: Pour me sentir plus indépendant financièrement et libre de mon temps."
-                  className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none transition-all placeholder:text-slate-600"
-                  required
-                  id="input-goal-why"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Date limite souhaitée</label>
-                  <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 outline-none transition-all"
-                    required
-                    id="input-goal-target-date"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Catégorie de vie</label>
-                  <select
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value as LifeDomain)}
-                    className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-2 py-2 outline-none transition-all"
-                    id="select-goal-domain"
-                  >
-                    {Object.values(LifeDomain).map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="text-xs font-semibold text-slate-400 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all cursor-pointer"
-              id="btn-cancel-goal"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
-              id="btn-submit-goal"
-            >
-              Créer l'Objectif
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Colonne gauche (liste) et droite (détails) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Liste des objectifs */}
-        <div className="lg:col-span-4 space-y-4">
-          <h3 className="text-xs font-sans font-bold text-slate-300 uppercase tracking-wider">Vos Objectifs</h3>
-          {goals.length === 0 ? (
-            <div className="bg-slate-900/30 rounded-xl border border-slate-800/80 p-6 text-center">
-              <Target className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">Aucun objectif créé pour le moment.</p>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="mt-3 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
-              >
-                + En créer un maintenant
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {goals.map((goal) => {
-                const isSelected = selectedGoalId === goal.id;
-                const flatMT = getFlatMicroTasks(goal);
-                const doneMT = flatMT.filter(m => m.completed).length;
-
-                return (
-                  <div
-                    key={goal.id}
-                    onClick={() => setSelectedGoalId(goal.id)}
-                    className={`bg-slate-900/50 rounded-xl border p-4 shadow-sm hover:border-indigo-500/30 cursor-pointer transition-all flex flex-col justify-between ${
-                      isSelected ? "border-indigo-500 bg-indigo-950/10 shadow-indigo-950/20" : "border-slate-800"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-[9px] font-mono text-indigo-400 bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-900/30">{goal.domain}</span>
-                        <span className="text-[9px] font-mono text-slate-500">Cible : {goal.targetDate}</span>
-                      </div>
-                      <h4 className="text-xs font-bold text-white line-clamp-1">{goal.name}</h4>
-                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-1 italic">« {goal.why} »</p>
-                    </div>
-
-                    <div className="space-y-1.5 pt-3 mt-3 border-t border-slate-800/60">
-                      <div className="flex justify-between items-center text-[10px] font-mono">
-                        <span className="text-slate-500">
-                          {flatMT.length > 0 ? `${doneMT} / ${flatMT.length} micro-tâches` : "Aucune tâche"}
-                        </span>
-                        <span className="font-bold text-indigo-400">{goal.progress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden">
-                        <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${goal.progress}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Détails de l'objectif sélectionné */}
-        <div className="lg:col-span-8 bg-slate-900/50 rounded-2xl border border-slate-800 p-6 backdrop-blur-sm shadow-xl min-h-[450px] flex flex-col justify-between">
-          {selectedGoalId ? (
-            (() => {
-              const goal = goals.find(g => g.id === selectedGoalId);
-              if (!goal) return <p className="text-xs text-slate-500 m-auto">Sélectionnez un objectif à gauche pour l'afficher.</p>;
-
-              const flatMT = getFlatMicroTasks(goal);
-              const hasProjects = goal.projects && goal.projects.length > 0;
-
-              return (
-                <div className="space-y-6 flex-1 flex flex-col justify-between">
-                  <div className="space-y-5">
-                    {/* Infos de base */}
-                    <div className="border-b border-slate-800 pb-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-widest font-bold">Plan d'Action Kaizen</span>
-                        <span className="text-[10px] font-mono text-slate-500">Date limite : {goal.targetDate}</span>
-                      </div>
-                      <h3 className="text-base font-bold text-white mt-1">{goal.name}</h3>
-                      {goal.description && <p className="text-xs text-slate-400 mt-1.5">{goal.description}</p>}
-                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-xs text-slate-300 italic mt-3 flex items-start gap-2">
-                        <span className="text-amber-500 font-bold shrink-0">Mon WHY profond :</span>
-                        <span>« {goal.why} »</span>
-                      </div>
-                    </div>
-
-                    {/* VUE SIMPLE (FLAT LIST OF TASKS) */}
-                    {viewMode === "simple" && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-mono text-slate-300 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-                            <ListTodo className="w-4 h-4 text-indigo-400" />
-                            Mes micro-tâches de moins de 15 min
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {flatMT.length} actions programmées
-                          </span>
-                        </div>
-
-                        {flatMT.length > 0 ? (
-                          <div className="bg-slate-950/50 rounded-xl border border-slate-850 p-3.5 space-y-2 max-h-[300px] overflow-y-auto">
-                            {flatMT.map((mt) => (
-                              <div
-                                key={mt.id}
-                                className="flex items-center justify-between gap-3 p-2 bg-slate-900/40 rounded-lg border border-slate-800/40 hover:border-slate-800 transition-all"
-                              >
-                                <button
-                                  onClick={() => handleToggleMicroTask(goal.id, mt.projectId, mt.stageId, mt.taskId, mt.id)}
-                                  className="flex items-center gap-2.5 text-xs text-slate-300 hover:text-white cursor-pointer text-left w-full"
-                                  id={`btn-flat-mt-${mt.id}`}
-                                >
-                                  {mt.completed ? (
-                                    <CheckCircle2 className="w-4.5 h-4.5 text-indigo-500 shrink-0" />
-                                  ) : (
-                                    <Circle className="w-4.5 h-4.5 text-slate-700 hover:text-slate-500 shrink-0" />
-                                  )}
-                                  <span className={mt.completed ? "line-through text-slate-500" : "text-slate-200"}>
-                                    {mt.name}
-                                  </span>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 bg-slate-950/20 border border-dashed border-slate-800 rounded-xl">
-                            <Sparkles className="w-8 h-8 text-indigo-500/40 mx-auto mb-2" />
-                            <p className="text-xs text-slate-300">Aucune tâche active pour cet objectif.</p>
-                            <p className="text-[10px] text-slate-500 mt-1 max-w-xs mx-auto">
-                              Cliquez ci-dessous pour laisser l'IA Sensei concevoir instantanément un plan de micro-actions de moins de 15 minutes.
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Formulaire pour ajouter une tâche personnalisée à la liste */}
-                        <div className="flex gap-2 mt-4">
-                          <input
-                            type="text"
-                            value={newMicroTaskName}
-                            onChange={(e) => setNewMicroTaskName(e.target.value)}
-                            placeholder="➕ Ajouter ma propre micro-action de 15 min..."
-                            className="w-full bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none transition-all placeholder:text-slate-600"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleAddCustomMicroTask(goal.id);
-                              }
-                            }}
-                            id="input-simple-mt-name"
-                          />
-                          <button
-                            onClick={() => handleAddCustomMicroTask(goal.id)}
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 rounded-xl border border-slate-700 cursor-pointer transition-all whitespace-nowrap"
-                          >
-                            Ajouter
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* VUE AVANCÉE (PROJETS -> STAGES -> TASKS) */}
-                    {viewMode === "advanced" && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">PLAN D'ACTION STRUCTURÉ DÉTAILLÉ</span>
-                          <span className="text-[10px] text-slate-500">1 Projet • 3 Étapes • Tâches</span>
-                        </div>
-
-                        {hasProjects ? (
-                          goal.projects.map((proj) => (
-                            <div key={proj.id} className="space-y-4">
-                              <div className="bg-slate-950/60 px-4 py-3 rounded-xl border border-indigo-950/40">
-                                <h4 className="text-xs font-bold text-white">Projet : {proj.name}</h4>
-                                <p className="text-[10px] text-slate-400 mt-1 italic">{proj.description}</p>
-                              </div>
-
-                              <div className="space-y-3">
-                                {proj.stages.map((stage) => (
-                                  <div key={stage.id} className="bg-slate-800/10 border border-slate-800/80 rounded-xl p-4 space-y-3">
-                                    <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
-                                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                                        <div className={`w-2 h-2 rounded-full ${stage.completed ? "bg-emerald-500" : "bg-indigo-400"}`}></div>
-                                        {stage.name}
-                                      </div>
-                                      <span className="text-[9px] text-slate-500">{stage.description}</span>
-                                    </div>
-
-                                    <div className="space-y-2.5">
-                                      {stage.tasks.map((task) => {
-                                        const isDone = task.status === TaskStatus.DONE;
-                                        return (
-                                          <div key={task.id} className="bg-slate-900/60 rounded-xl border border-slate-800 p-3 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                              <button
-                                                onClick={() => handleToggleTaskStatus(goal.id, proj.id, stage.id, task.id)}
-                                                className="flex items-center gap-2 text-xs font-semibold text-slate-200 hover:text-white cursor-pointer text-left"
-                                                id={`btn-task-toggle-${task.id}`}
-                                              >
-                                                {isDone ? (
-                                                  <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
-                                                ) : (
-                                                  <Circle className="w-4.5 h-4.5 text-slate-700 hover:text-slate-500 shrink-0" />
-                                                )}
-                                                <span className={isDone ? "line-through text-slate-500" : ""}>{task.name}</span>
-                                              </button>
-                                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider bg-slate-800 px-1.5 py-0.5 rounded">
-                                                Deep Work : {task.deepWorkHoursPlanned}h
-                                              </span>
-                                            </div>
-
-                                            <div className="pl-6.5 space-y-1.5 border-l border-slate-800/60 ml-2 pt-1">
-                                              {task.microTasks.map((mt) => (
-                                                <button
-                                                  key={mt.id}
-                                                  onClick={() => handleToggleMicroTask(goal.id, proj.id, stage.id, task.id, mt.id)}
-                                                  className="flex items-center gap-2 text-[10px] text-slate-400 hover:text-slate-200 w-full text-left cursor-pointer"
-                                                  id={`btn-micro-toggle-${mt.id}`}
-                                                >
-                                                  {mt.completed ? (
-                                                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                                  ) : (
-                                                    <Circle className="w-3.5 h-3.5 text-slate-800 hover:text-slate-700 shrink-0" />
-                                                  )}
-                                                  <span className={mt.completed ? "line-through text-slate-600" : ""}>{mt.name}</span>
-                                                </button>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-6">
-                            <p className="text-xs text-slate-500 italic">Aucun projet structuré. Utilisez le bouton IA ci-dessous.</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Bouton IA de décomposition si pas encore de tâches */}
-                    {flatMT.length === 0 && (
-                      <div className="text-center py-4 flex flex-col items-center justify-center m-auto max-w-sm mt-4">
-                        <button
-                          onClick={() => handleAIDecompose(goal.id)}
-                          disabled={decomposingGoalId === goal.id}
-                          className="inline-flex items-center gap-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-850 disabled:text-slate-500 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-indigo-600/15 cursor-pointer transition-all"
-                          id="btn-ai-decompose"
-                        >
-                          {decomposingGoalId === goal.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              L'IA conçoit vos micro-tâches (moins de 15 min)...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 animate-pulse" />
-                              🤖 Décomposer par l'IA (+100 XP)
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* INFO ENCADRÉ BASE DE DONNÉES (RÉPONSE CLAIRE À LA QUESTION DE L'UTILISATEUR) */}
-                  <div className="mt-8 bg-slate-950/60 rounded-xl border border-slate-800/80 p-4 space-y-2">
-                    <h4 className="text-xs font-bold text-indigo-400 flex items-center gap-2">
-                      <Database className="w-4 h-4 text-indigo-400" />
-                      🗄️ Où se trouve notre base de données ?
-                    </h4>
-                    <div className="text-[11px] text-slate-400 space-y-1.5 leading-relaxed">
-                      <p>
-                        Vos données sont sauvegardées de façon <strong>immédiate et sécurisée</strong> directement dans la mémoire locale de votre navigateur (<code className="font-mono bg-slate-900 px-1 py-0.5 rounded text-amber-400">localStorage</code>).
-                      </p>
-                      <p>
-                        ✔️ <strong>Zéro connexion obligatoire</strong> : C'est ultra-rapide, ça fonctionne hors-ligne, et respecte entièrement votre vie privée. Vos objectifs restent chez vous sur cet ordinateur.
-                      </p>
-                      <p className="text-slate-500 italic">
-                        💡 <strong>Besoin d'une synchronisation Cloud ?</strong> Si vous préférez enregistrer vos données sur des serveurs Cloud (Firebase Firestore) pour y accéder depuis votre téléphone ou un autre appareil, dites-le moi simplement et j'activerai le module de base de données Firebase Firestore !
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()
-          ) : (
-            <div className="text-center py-10 flex flex-col items-center justify-center m-auto max-w-sm">
-              <Target className="w-12 h-12 text-slate-700 mb-3" />
-              <p className="text-sm text-slate-400">Sélectionnez un objectif dans la liste pour voir et gérer vos micro-tâches.</p>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
-  );
-}
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 🗺️ Hubs")
+    menu = st.radio(
+        "Sélectionnez un hub :",
+        ["🎯 Mes Objectifs & IA Sensei", "🗄️ Base de Données & Stockage", "🧘 Mes Rituels quotidiens", "⚡ Anti-Procrastination"],
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("---")
+    st.markdown(
+        '<div style="font-style: italic; color: #94A3B8; border-left: 2px solid #6366F1; padding-left: 12px; font-size: 12px; line-height: 1.5">'
+        '"Le secret pour avancer, c\'est de commencer en découpant vos tâches en actions de moins de 15 minutes."<br>— Philosophie Kaizen'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+# ----------------- Tab 1: Mes Objectifs & IA Sensei -----------------
+if menu == "🎯 Mes Objectifs & IA Sensei":
+    st.markdown("## 🎯 Gestion d'Objectifs Simplifiée par l'IA")
+    st.markdown("Déclarez votre objectif de vie simple ou complexe. Notre IA Sensei se charge de concevoir instantanément vos **micro-tâches concrètes de moins de 15 minutes** pour éliminer toute friction d'action.")
+    
+    # Simple Mode toggle or settings
+    col_view_left, col_view_right = st.columns([8, 4])
+    with col_view_right:
+        view_mode = st.selectbox("Format d'affichage :", ["Mode Simple (Conseillé)", "Mode Projet Structuré"], key="view_mode_select")
+    
+    # EXPANDER FORM TO ADD A GOAL
+    with st.expander("➕ Déclarer un nouvel Objectif de vie", expanded=False):
+        g_name = st.text_input("Nom de l'objectif :", placeholder="Ex: Lancer mon propre site internet, apprendre l'anglais, etc.")
+        g_why = st.text_input("Pourquoi cet objectif est capital pour vous ? (Motivation profonde) :", placeholder="Ex: Pour me sentir plus indépendant financièrement et fier de mon temps.")
+        g_desc = st.text_area("Description courte optionnelle :", placeholder="Ajouter des notes ou détails supplémentaires...")
+        
+        col_form1, col_form2 = st.columns(2)
+        with col_form1:
+            g_target = st.date_input("Date limite visée :", value=datetime.date.today() + datetime.timedelta(days=90))
+        with col_form2:
+            g_domain = st.selectbox("Domaine de Vie :", ["Carrière / Professionnel", "Santé / Physique", "Mental / Sagesse", "Finances", "Social / Famille"])
+            
+        if st.button("Créer l'Objectif 🚀", use_container_width=True):
+            if g_name and g_why:
+                new_goal = {
+                    "id": f"goal-{random.randint(1000,9999)}",
+                    "name": g_name,
+                    "description": g_desc,
+                    "why": g_why,
+                    "startDate": str(datetime.date.today()),
+                    "targetDate": str(g_target),
+                    "domain": g_domain,
+                    "progress": 0,
+                    "projects": []
+                }
+                st.session_state["goals"].append(new_goal)
+                st.success("Objectif créé ! Choisissez-le maintenant ci-dessous pour lancer sa décomposition.")
+                st.rerun()
+            else:
+                st.warning("Veuillez renseigner au moins le Nom et votre Motivation profonde (Why).")
+
+    # GOALS GRID & SELECTION
+    if not st.session_state["goals"]:
+        st.info("Vous n'avez pas encore défini d'objectif. Utilisez le formulaire ci-dessus pour déclarer votre premier objectif !")
+    else:
+        st.markdown("### 🏆 Sélectionnez un objectif actif pour voir ses micro-actions :")
+        goal_names = [g["name"] for g in st.session_state["goals"]]
+        selected_goal_name = st.selectbox("Objectif actif :", goal_names, label_visibility="collapsed")
+        
+        # Get selected goal and its index
+        goal_idx = next(i for i, g in enumerate(st.session_state["goals"]) if g["name"] == selected_goal_name)
+        goal = st.session_state["goals"][goal_idx]
+        
+        # Layout of details
+        st.markdown(f"""
+        <div class="kaizen-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <span class="status-badge">{goal['domain']}</span>
+                <span style="font-size:11px; color:#94A3B8; font-family:'JetBrains Mono';">Date limite : {goal['targetDate']}</span>
+            </div>
+            <h3 style="margin:10px 0 6px 0; font-size:20px; font-weight:800; color:#F8FAFC;">{goal['name']}</h3>
+            <p style="font-size:13px; color:#94A3B8; margin-bottom:12px;">{goal['description']}</p>
+            <div style="background-color:#070A13; padding:12px 16px; border-radius:10px; border:1px dashed #1E293B; font-size:12px; color:#F1F5F9; font-style:italic;">
+                💡 <strong>Motivation profonde (Mon Why) :</strong> « {goal['why']} »
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Action plan presence check
+        has_plan = "projects" in goal and len(goal["projects"]) > 0
+        
+        # AI Decomposer block if no plan exists
+        if not has_plan:
+            st.markdown("""
+            <div style="background-color:rgba(99, 102, 241, 0.05); border-left:4px solid #6366F1; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <h4 style="margin:0 0 6px 0; font-size:14px; font-weight:700; color:#F8FAFC;">🤖 Votre plan d'action n'est pas encore initialisé</h4>
+                <p style="margin:0; font-size:12px; color:#94A3B8;">
+                    La philosophie Kaizen recommande d'éviter la surcharge en découpant vos objectifs en tâches de moins de 15 minutes. 
+                    Laissez notre Intelligence Artificielle concevoir votre plan d'action instantanément !
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("✨ Décomposer cet objectif par l'IA (+100 XP)", type="primary", use_container_width=True):
+                with st.spinner("L'IA Sensei analyse votre objectif et décompose les frictions..."):
+                    action_plan = decompose_goal_with_gemini(goal["name"], goal["why"], goal["domain"])
+                    
+                    # Convert action plan structure
+                    new_project = {
+                        "id": f"proj-{random.randint(1000,9999)}",
+                        "name": action_plan.get("projectName", f"Plan d'action de {goal['name']}"),
+                        "description": action_plan.get("projectDescription", "Décomposition en actions rapides."),
+                        "completed": False,
+                        "stages": []
+                    }
+                    
+                    for stage_idx, s in enumerate(action_plan.get("stages", [])):
+                        new_stage = {
+                            "id": f"stage-{stage_idx}-{random.randint(100,999)}",
+                            "name": s.get("name", f"Étape {stage_idx+1}"),
+                            "description": s.get("description", ""),
+                            "completed": False,
+                            "tasks": []
+                        }
+                        
+                        for task_idx, t in enumerate(s.get("tasks", [])):
+                            new_task = {
+                                "id": f"task-{stage_idx}-{task_idx}-{random.randint(100,999)}",
+                                "name": t.get("name", "Tâche d'action"),
+                                "description": t.get("description", ""),
+                                "status": "TODO",
+                                "microTasks": []
+                            }
+                            
+                            for mt_idx, mt in enumerate(t.get("microTasks", [])):
+                                new_task["microTasks"].append({
+                                    "id": f"mt-{stage_idx}-{task_idx}-{mt_idx}-{random.randint(1000,9999)}",
+                                    "name": mt.get("name", "Action rapide de 15m"),
+                                    "completed": False
+                                })
+                                
+                            new_stage["tasks"].append(new_task)
+                        new_project["stages"].append(new_stage)
+                    
+                    st.session_state["goals"][goal_idx]["projects"] = [new_project]
+                    st.session_state["xp"] += 100
+                    recalculate_goal_progress(goal_idx)
+                    st.balloons()
+                    st.success("Plan d'action conçu avec succès par l'IA Sensei ! +100 XP accordés !")
+                    st.rerun()
+        else:
+            # Plan exists! We render it
+            flat_mts = []
+            for p_idx, p in enumerate(goal["projects"]):
+                for s_idx, s in enumerate(p["stages"]):
+                    for t_idx, t in enumerate(s["tasks"]):
+                        for mt_idx, mt in enumerate(t["microTasks"]):
+                            flat_mts.append({
+                                "id": mt["id"],
+                                "name": mt["name"],
+                                "completed": mt["completed"],
+                                "p_idx": p_idx,
+                                "s_idx": s_idx,
+                                "t_idx": t_idx,
+                                "mt_idx": mt_idx,
+                                "parent_task": t["name"]
+                            })
+            
+            # Recalculate and show Progress bar
+            done_cnt = sum(1 for m in flat_mts if m["completed"])
+            total_cnt = len(flat_mts)
+            progress_val = int((done_cnt / total_cnt) * 100) if total_cnt > 0 else 0
+            st.session_state["goals"][goal_idx]["progress"] = progress_val
+            
+            st.markdown(f"**Progression globale de l'objectif : {progress_val}%**")
+            st.progress(progress_val / 100.0)
+            
+            if view_mode == "Mode Simple (Conseillé)":
+                st.markdown("#### ⚡ Vos micro-actions de moins de 15 minutes :")
+                st.write("Faites un petit pas aujourd'hui. Cochez une action rapide pour l'archiver.")
+                
+                # Render list
+                for m in flat_mts:
+                    col_chk, col_txt = st.columns([1, 15])
+                    with col_chk:
+                        # Streamlit Checkbox
+                        is_mt_done = st.checkbox("", value=m["completed"], key=f"chk_mt_{m['id']}")
+                        if is_mt_done != m["completed"]:
+                            st.session_state["goals"][goal_idx]["projects"][m["p_idx"]]["stages"][m["s_idx"]]["tasks"][m["t_idx"]]["microTasks"][m["mt_idx"]]["completed"] = is_mt_done
+                            if is_mt_done:
+                                st.session_state["xp"] += 15
+                            else:
+                                st.session_state["xp"] = max(0, st.session_state["xp"] - 15)
+                            recalculate_goal_progress(goal_idx)
+                            st.rerun()
+                    with col_txt:
+                        text_style = "text-decoration: line-through; color: #64748B;" if m["completed"] else "color: #E2E8F0;"
+                        st.markdown(f"""
+                        <div style="font-size:13px; font-weight:500; {text_style} margin-top: 2px;">
+                            {m['name']} <span style="font-size:10px; color:#6366F1; font-family:'JetBrains Mono'; margin-left:8px;">[Tâche : {m['parent_task']}]</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Form to add a manual custom micro-task simply
+                st.markdown("---")
+                st.markdown("##### ➕ Ajouter une micro-action personnalisée :")
+                new_custom_mt = st.text_input("Saisir une action rapide à accomplir en moins de 15 min :", placeholder="Ex: Envoyer un email de relance...", key="new_custom_mt_input")
+                if st.button("Ajouter à la liste active", use_container_width=True):
+                    if new_custom_mt:
+                        proj = st.session_state["goals"][goal_idx]["projects"][0]
+                        if not proj["stages"]:
+                            proj["stages"] = [{
+                                "id": f"stage-{random.randint(100,999)}",
+                                "name": "Actions complémentaires",
+                                "description": "Micro-actions ajoutées manuellement",
+                                "completed": False,
+                                "tasks": []
+                            }]
+                        stage = proj["stages"][0]
+                        if not stage["tasks"]:
+                            stage["tasks"] = [{
+                                "id": f"task-{random.randint(100,999)}",
+                                "name": "Actions Libres",
+                                "description": "Actions simples",
+                                "status": "TODO",
+                                "microTasks": []
+                            }]
+                        task = stage["tasks"][0]
+                        task["microTasks"].append({
+                            "id": f"mt-custom-{random.randint(1000,9999)}",
+                            "name": new_custom_mt,
+                            "completed": False
+                        })
+                        st.session_state["xp"] += 5
+                        recalculate_goal_progress(goal_idx)
+                        st.success("Micro-action ajoutée ! +5 XP.")
+                        st.rerun()
+            else:
+                # Mode Projet Structuré (stages, tasks, microTasks details)
+                st.markdown("#### 🧩 Structure Détaillée de votre Plan d'Action :")
+                
+                for p_idx, p in enumerate(goal["projects"]):
+                    st.markdown(f"##### Projet : {p['name']}")
+                    st.write(p["description"])
+                    
+                    for s_idx, s in enumerate(p["stages"]):
+                        with st.expander(f"📌 {s['name']}", expanded=True):
+                            st.caption(s["description"])
+                            
+                            for t_idx, t in enumerate(s["tasks"]):
+                                st.markdown(f"**🔹 Tâche principale : {t['name']}**")
+                                st.markdown(f"<span style='font-size:11px; color:#94A3B8; margin-left: 12px;'>{t['description']}</span>", unsafe_allow_html=True)
+                                
+                                # Render micro tasks
+                                for mt_idx, mt in enumerate(t["microTasks"]):
+                                    col_chk_adv, col_txt_adv = st.columns([1, 15])
+                                    with col_chk_adv:
+                                        is_mt_done = st.checkbox("", value=mt["completed"], key=f"chk_mt_adv_{mt['id']}")
+                                        if is_mt_done != mt["completed"]:
+                                            st.session_state["goals"][goal_idx]["projects"][p_idx]["stages"][s_idx]["tasks"][t_idx]["microTasks"][mt_idx]["completed"] = is_mt_done
+                                            if is_mt_done:
+                                                st.session_state["xp"] += 15
+                                            else:
+                                                st.session_state["xp"] = max(0, st.session_state["xp"] - 15)
+                                            recalculate_goal_progress(goal_idx)
+                                            st.rerun()
+                                    with col_txt_adv:
+                                        text_style = "text-decoration: line-through; color: #64748B;" if mt["completed"] else "color: #E2E8F0;"
+                                        st.markdown(f"""
+                                        <div style="font-size:12px; {text_style} margin-top:2px;">
+                                            {mt['name']}
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                st.markdown('<div style="margin-bottom:12px;"></div>', unsafe_allow_html=True)
+
+        # BUTTON TO RESET OR REMOVE AN OBJECTIVE
+        st.markdown("---")
+        if st.button("❌ Supprimer cet objectif", type="secondary", use_container_width=True):
+            st.session_state["goals"].pop(goal_idx)
+            st.warning("Objectif supprimé.")
+            st.rerun()
+
+# ----------------- Tab 2: Base de Données & Stockage -----------------
+elif menu == "🗄️ Base de Données & Stockage":
+    st.markdown("## 🗄️ Architecture de Données & Stockage de KaizenOS")
+    
+    st.markdown("""
+    <div class="database-card">
+        <h3 style="margin:0 0 10px 0; font-size:18px; font-weight:800; color:#F8FAFC;">📁 Où se trouve notre base de données ?</h3>
+        <p style="margin:0 0 12px 0; font-size:13px; color:#E2E8F0; line-height:1.6;">
+            Actuellement, l'application fonctionne avec un système de stockage hybride hautement performant :
+        </p>
+        <ul style="font-size:13px; color:#94A3B8; line-height:1.6; margin-left:20px;">
+            <li><strong>Streamlit Session State :</strong> Pour l'interface Streamlit Python, vos données sont conservées en mémoire vive applicative (<code style="background-color:#0F172A; padding:2px 6px; border-radius:4px; color:#F43F5E;">st.session_state</code>). C'est ce qui permet une réactivité instantanée à la milliseconde sans aucune latence réseau.</li>
+            <li><strong>Browser localStorage (Navigateur client) :</strong> Pour la version Web interactive React, vos données sont automatiquement enregistrées et persistées directement dans la mémoire physique locale de votre propre navigateur (<code style="background-color:#0F172A; padding:2px 6px; border-radius:4px; color:#F43F5E;">localStorage</code>).</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_db1, col_db2 = st.columns(2)
+    with col_db1:
+        st.markdown("""
+        <div class="kaizen-card" style="height:100%;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#F8FAFC;">✔️ Avantages de cette approche</h4>
+            <ul style="font-size:12px; color:#94A3B8; line-height:1.6; margin-left:15px; padding-left:0;">
+                <li><strong>Zéro connexion requise :</strong> L'application fonctionne entièrement hors-ligne, vous permettant de rester concentré sans dépendre d'une connexion internet fluctuante.</li>
+                <li><strong>Confidentialité absolue :</strong> Vos objectifs de vie, vos motivations profondes et vos rituels quotidiens restent stockés chez vous, sur votre appareil, et ne sont jamais revendus à des tiers.</li>
+                <li><strong>Vitesse instantanée :</strong> Aucune requête SQL distante n'interrompt votre flux de Deep Work (zéro délai de chargement).</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_db2:
+        st.markdown("""
+        <div class="kaizen-card" style="height:100%;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#F8FAFC;">💡 Besoin d'une Synchronisation Cloud ?</h4>
+            <p style="font-size:12px; color:#94A3B8; line-height:1.6; margin:0 0 10px 0;">
+                Si vous souhaitez utiliser KaizenOS sur plusieurs appareils simultanément (comme votre téléphone portable et votre ordinateur de bureau) tout en conservant vos progrès à jour, nous pouvons configurer une base de données Cloud persistante !
+            </p>
+            <p style="font-size:12px; color:#E2E8F0; line-height:1.6; margin:0;">
+                Dites-moi simplement : <strong>« Configure Firebase Firestore »</strong> et j'activerai le module de base de données à distance sécurisé pour synchroniser vos données sur le Cloud.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # VIEW DATABASE CONTENT (JSON INSPECTOR)
+    st.markdown("### 🔍 Inspecteur de Base de Données en direct :")
+    st.write("Voici la représentation JSON de vos données en temps réel telles qu'elles sont stockées dans l'application :")
+    
+    inspect_data = {
+        "level": st.session_state["level"],
+        "xp": st.session_state["xp"],
+        "streak": st.session_state["streak"],
+        "goals": st.session_state["goals"],
+        "habits": st.session_state["habits"],
+        "procrastinations": st.session_state["procrastinations"]
+    }
+    st.json(inspect_data)
+
+# ----------------- Tab 3: Mes Rituels quotidiens -----------------
+elif menu == "🧘 Mes Rituels quotidiens":
+    st.markdown("## 🧘 Rituels & Habitudes d'Identité")
+    st.markdown("James Clear (Atomic Habits) : « Chaque action que vous entreprenez est un vote pour le type de personne que vous souhaitez devenir. »")
+    
+    # Simple form to add a habit
+    with st.expander("➕ Enregistrer un nouveau Rituel quotidien (Conditionnement)", expanded=False):
+        h_name = st.text_input("Nom du rituel :", placeholder="Ex: Faire 20 pushups, Méditer 5 min...")
+        h_cue = st.text_input("Signal de démarrage (Cue) :", placeholder="Ex: Immédiatement après avoir posé ma tasse de café le matin...")
+        h_cat = st.selectbox("Catégorie :", ["Professionnel", "Santé / Physique", "Mindset / Mental", "Social / Autre"])
+        if st.button("Enregistrer le Rituel 💾", use_container_width=True):
+            if h_name and h_cue:
+                st.session_state["habits"].append({
+                    "id": random.randint(100, 999),
+                    "name": h_name,
+                    "cue": h_cue,
+                    "category": h_cat,
+                    "done": False
+                })
+                st.success("Rituel quotidien ajouté !")
+                st.rerun()
+
+    # Habit Tracker List
+    st.markdown("### Vos Rituels pour aujourd'hui :")
+    for idx, h in enumerate(st.session_state["habits"]):
+        col_chk_hab, col_det_hab, col_del_hab = st.columns([1, 8, 1])
+        with col_chk_hab:
+            is_done = st.checkbox("", value=h["done"], key=f"hab_chk_{h['id']}")
+            if is_done != h["done"]:
+                st.session_state["habits"][idx]["done"] = is_done
+                if is_done:
+                    st.session_state["xp"] += 25
+                else:
+                    st.session_state["xp"] = max(0, st.session_state["xp"] - 25)
+                st.rerun()
+        with col_det_hab:
+            style_h = "text-decoration: line-through; color: #64748B;" if h["done"] else "color: #E2E8F0;"
+            st.markdown(f"""
+            <div style="{style_h} margin-top:2px;">
+                <span style="font-weight:700; font-size:13px;">{h['name']}</span> <span style="font-size:10px; color:#A1A1AA;" class="mono">[{h['category']}]</span><br>
+                <span style="font-size:11px; color:#94A3B8;">⚡ Déclencheur : {h['cue']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_del_hab:
+            if st.button("❌", key=f"del_hab_{h['id']}"):
+                st.session_state["habits"].pop(idx)
+                st.warning("Rituel supprimé.")
+                st.rerun()
+
+# ----------------- Tab 4: Anti-Procrastination -----------------
+elif menu == "⚡ Anti-Procrastination":
+    st.markdown("## 🛡️ Anti-Procrastination : Journal d'Évitement")
+    st.markdown("Comprenez les mécanismes psychologiques de l'évitement comportemental et brisez-les avec la règle des 2 minutes d'Atomic Habits.")
+    
+    with st.expander("📝 Consigner une friction d'action", expanded=True):
+        ap_task = st.text_input("Tâche évitée :", placeholder="Ex: Rédiger le rapport trimestriel...")
+        ap_trigger = st.selectbox("Facteur déclencheur (La cause) :", [
+            "Peur de l'imperfection / Perfectionnisme",
+            "Manque de clarté / Ambiguité de la tâche",
+            "Fatigue / Surcharge cognitive",
+            "Tâche ennuyeuse / Absence de récompense immédiate"
+        ])
+        ap_cost = st.text_input("Coût du délai (Conséquence si repoussé) :", placeholder="Ex: Stress intense et retard de livraison...")
+        ap_win = st.text_input("La Micro-Victoire d'Entrée (Moins de 2 minutes) :", placeholder="Ex: Ouvrir le document Word et écrire juste un titre.")
+        
+        if st.button("Enregistrer l'Analyse 🛡️", use_container_width=True):
+            if ap_task and ap_win:
+                st.session_state["procrastinations"].append({
+                    "date": str(datetime.date.today()),
+                    "task": ap_task,
+                    "trigger": ap_trigger,
+                    "cost": ap_cost,
+                    "win": ap_win
+                })
+                st.success("Analyse enregistrée ! Réalisez votre micro-victoire de 2 minutes maintenant.")
+                st.rerun()
+
+    # Display procrastination log
+    st.markdown("### Analyses de Friction Passées :")
+    for idx, log in enumerate(st.session_state["procrastinations"]):
+        st.markdown(f"""
+        <div class="kaizen-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-weight:700; font-size:14px; color:#F8FAFC;">{log['task']}</span>
+                <span style="font-size:10px; color:#94A3B8;" class="mono">{log['date']}</span>
+            </div>
+            <div style="font-size:12px; line-height:1.6; color:#94A3B8;">
+                ⚠️ <strong>Déclencheur :</strong> {log['trigger']}<br>
+                📉 <strong>Coût de l'évitement :</strong> {log['cost']}<br>
+                🛡️ <strong>Micro-Victoire conseillée :</strong> <span style="color:#818CF8; font-weight:700;">{log['win']}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button(f"Supprimer l'analyse {idx+1}", key=f"del_ap_{idx}"):
+            st.session_state["procrastinations"].pop(idx)
+            st.rerun()
