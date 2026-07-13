@@ -340,9 +340,11 @@ def decompose_goal_with_gemini(goal_name, why_deep, domain):
         
     prompt = f"""
     En tant qu'expert mondial de la méthode Kaizen, d'Atomic Habits (James Clear) et de la productivité :
-    Décompose l'objectif suivant en 1 projet clé, contenant 3 étapes progressives.
+    Décompose l'objectif de vie suivant en 1 projet clé, contenant 3 étapes progressives.
     Chaque étape doit contenir 2 tâches d'action.
     Chaque tâche doit contenir exactement 3 micro-tâches Kaizen ultra-précises, réalisables en moins de 15 minutes.
+    
+    De plus, génère également 2 à 3 rituels et habitudes saines (Atomic Habits) qui soutiennent directement la réalisation de cet objectif au quotidien. Chaque habitude doit comprendre : un nom simple, un signal déclencheur clair (Cue) (ex: 'Dès que je ferme mon ordinateur à 18h'), une routine Kaizen rapide (moins de 10-15 minutes) pour éliminer toute friction, et une récompense immédiate saine (Reward).
     
     Détails de l'objectif :
     - Nom : {goal_name}
@@ -399,9 +401,23 @@ def decompose_goal_with_gemini(goal_name, why_deep, domain):
                             },
                             "required": ["name", "description", "tasks"]
                         }
+                    },
+                    "suggestedHabits": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "name": {"type": "STRING"},
+                                "cue": {"type": "STRING"},
+                                "routine": {"type": "STRING"},
+                                "reward": {"type": "STRING"},
+                                "frequency": {"type": "STRING"}
+                            },
+                            "required": ["name", "cue", "routine", "reward", "frequency"]
+                        }
                     }
                 },
-                "required": ["projectName", "projectDescription", "stages"]
+                "required": ["projectName", "projectDescription", "stages", "suggestedHabits"]
             }
         }
     }
@@ -439,47 +455,46 @@ if "initialized" not in st.session_state:
     st.session_state["goals"] = [
         {
             "id": "init-goal",
-            "name": "Lancer ma propre application web professionnelle",
-            "description": "Créer et publier une application moderne simple en ligne pour mes clients.",
-            "why": "Pour être indépendant financièrement, libre de mon temps et fier d'avoir construit un outil utile.",
+            "name": "Bâtir un système d'apprentissage autonome",
+            "description": "Mettre en place des outils d'études quotidiens sans surcharge cognitive.",
+            "why": "Pour acquérir de nouvelles compétences clés et grandir de 1% chaque jour en toute liberté.",
             "startDate": "2026-07-13",
             "targetDate": "2026-10-31",
-            "domain": "Carrière / Professionnel",
+            "domain": "Mental / Sagesse",
             "progress": 33,
             "projects": [
                 {
                     "id": "init-proj",
-                    "name": "Projet de Lancement KaizenOS",
-                    "description": "Planification progressive et agile conçue pour éliminer la procrastination.",
+                    "name": "Projet d'Études Kaizen",
+                    "description": "Planification progressive conçue pour assimiler des connaissances sans effort et éliminer la procrastination.",
                     "completed": False,
                     "stages": [
                         {
                             "id": "stage-1",
-                            "name": "Étape 1 : Cadrage du Produit & Prototype",
-                            "description": "Poser les bases visuelles et conceptuelles de l'application.",
+                            "name": "Étape 1 : Poser les bases du rituel d'études",
+                            "description": "Prendre de bonnes habitudes de lecture et de prise de note.",
                             "completed": False,
-                            "stages": [],
                             "tasks": [
                                 {
                                     "id": "task-1-1",
-                                    "name": "Spécifier l'idée",
-                                    "description": "Définir l'architecture et l'audience cible.",
+                                    "name": "Identifier les sujets d'apprentissage prioritaires",
+                                    "description": "Définir la direction d'apprentissage de l'année.",
                                     "status": "TODO",
                                     "microTasks": [
-                                        {"id": "mt-1-1-1", "name": "Créer le fichier Notion/Word principal", "completed": True},
-                                        {"id": "mt-1-1-2", "name": "Lister les 3 fonctionnalités absolument vitales", "completed": True},
-                                        {"id": "mt-1-1-3", "name": "Rédiger le pitch d'identité en 1 paragraphe", "completed": False}
+                                        {"id": "mt-1-1-1", "name": "Créer un espace Notion ou un carnet de notes physique", "completed": True},
+                                        {"id": "mt-1-1-2", "name": "Lister les 3 thématiques d'études prioritaires", "completed": True},
+                                        {"id": "mt-1-1-3", "name": "Sélectionner 1 livre ou article de référence de départ", "completed": False}
                                     ]
                                 },
                                 {
                                     "id": "task-1-2",
-                                    "name": "Maquetter la page d'accueil",
-                                    "description": "Dessiner l'expérience utilisateur.",
+                                    "name": "Préparer l'environnement d'étude idéal",
+                                    "description": "Créer un espace propice au Deep Work sans distractions.",
                                     "status": "TODO",
                                     "microTasks": [
-                                        {"id": "mt-1-2-1", "name": "Prendre une feuille blanche et crayonner les 3 blocs principaux", "completed": False},
-                                        {"id": "mt-1-2-2", "name": "Choisir une palette de 2 couleurs dominantes", "completed": False},
-                                        {"id": "mt-1-2-3", "name": "Écrire le titre principal d'accroche", "completed": False}
+                                        {"id": "mt-1-2-1", "name": "Nettoyer mon bureau de travail physique", "completed": False},
+                                        {"id": "mt-1-2-2", "name": "Installer un bloqueur d'applications ou éteindre le téléphone", "completed": False},
+                                        {"id": "mt-1-2-3", "name": "Écrire une affirmation d'intention claire sur un post-it", "completed": False}
                                     ]
                                 }
                             ]
@@ -491,13 +506,137 @@ if "initialized" not in st.session_state:
     ]
     
     st.session_state["habits"] = [
-        {"id": 1, "name": "Session Deep Work : Code sans distraction", "cue": "À 9h00 • Téléphone éteint", "category": "Professionnel", "done": True},
-        {"id": 2, "name": "Micro-action : Réviser 1 concept technique", "cue": "10 min • Immédiatement après mon café", "category": "Mindset", "done": False}
+        {"id": 1, "name": "Lecture réflexive", "cue": "À 18h • Dès que je ferme mon ordinateur", "category": "Mindset / Mental", "done": True},
+        {"id": 2, "name": "Micro-méditation", "cue": "2 min • Dès que mon café du matin coule", "category": "Santé / Physique", "done": False}
     ]
     
     st.session_state["procrastinations"] = [
         {"date": "2026-07-13", "task": "Acheter le nom de domaine de l'application", "trigger": "Peur d'échouer ou de dépenser pour rien", "cost": "Retard de lancement du projet", "win": "Ouvrir l'onglet d'enregistrement de domaine et juste chercher la disponibilité"}
     ]
+
+# Sanitize and normalize Session State to prevent any KeyError or TypeError across runs
+if "goals" not in st.session_state or not isinstance(st.session_state["goals"], list):
+    st.session_state["goals"] = []
+
+sanitized_goals = []
+for idx, g in enumerate(st.session_state["goals"]):
+    if isinstance(g, dict):
+        sanitized_g = {
+            "id": g.get("id") or f"goal-{random.randint(1000,9999)}",
+            "name": g.get("name") or g.get("description") or f"Objectif #{idx + 1}",
+            "description": g.get("description") or "",
+            "why": g.get("why") or "Motivation non spécifiée",
+            "startDate": g.get("startDate") or str(datetime.date.today()),
+            "targetDate": g.get("targetDate") or str(datetime.date.today() + datetime.timedelta(days=90)),
+            "domain": g.get("domain") or "Carrière / Professionnel",
+            "progress": int(g.get("progress", 0)) if str(g.get("progress", 0)).isdigit() else 0,
+            "projects": g.get("projects") or []
+        }
+        if not isinstance(sanitized_g["projects"], list):
+            sanitized_g["projects"] = []
+            
+        sanitized_projects = []
+        for p in sanitized_g["projects"]:
+            if isinstance(p, dict):
+                sanitized_p = {
+                    "id": p.get("id") or f"proj-{random.randint(1000,9999)}",
+                    "name": p.get("name") or "Plan d'action",
+                    "description": p.get("description") or "",
+                    "completed": bool(p.get("completed", False)),
+                    "stages": p.get("stages") or []
+                }
+                if not isinstance(sanitized_p["stages"], list):
+                    sanitized_p["stages"] = []
+                    
+                sanitized_stages = []
+                for s in sanitized_p["stages"]:
+                    if isinstance(s, dict):
+                        sanitized_s = {
+                            "id": s.get("id") or f"stage-{random.randint(100,999)}",
+                            "name": s.get("name") or "Étape",
+                            "description": s.get("description") or "",
+                            "completed": bool(s.get("completed", False)),
+                            "tasks": s.get("tasks") or []
+                        }
+                        if not isinstance(sanitized_s["tasks"], list):
+                            sanitized_s["tasks"] = []
+                            
+                        sanitized_tasks = []
+                        for t in sanitized_s["tasks"]:
+                            if isinstance(t, dict):
+                                sanitized_t = {
+                                    "id": t.get("id") or f"task-{random.randint(100,999)}",
+                                    "name": t.get("name") or "Tâche",
+                                    "description": t.get("description") or "",
+                                    "status": t.get("status") or "TODO",
+                                    "microTasks": t.get("microTasks") or []
+                                }
+                                if not isinstance(sanitized_t["microTasks"], list):
+                                    sanitized_t["microTasks"] = []
+                                    
+                                sanitized_mts = []
+                                for mt in sanitized_t["microTasks"]:
+                                    if isinstance(mt, dict):
+                                        sanitized_mts.append({
+                                            "id": mt.get("id") or f"mt-{random.randint(1000,9999)}",
+                                            "name": mt.get("name") or "Action rapide",
+                                            "completed": bool(mt.get("completed", False))
+                                        })
+                                sanitized_t["microTasks"] = sanitized_mts
+                                sanitized_tasks.append(sanitized_t)
+                        sanitized_s["tasks"] = sanitized_tasks
+                        sanitized_stages.append(sanitized_s)
+                sanitized_p["stages"] = sanitized_stages
+                sanitized_projects.append(sanitized_p)
+        sanitized_g["projects"] = sanitized_projects
+        sanitized_goals.append(sanitized_g)
+st.session_state["goals"] = sanitized_goals
+
+if "habits" not in st.session_state or not isinstance(st.session_state["habits"], list):
+    st.session_state["habits"] = []
+
+sanitized_habits = []
+for h in st.session_state["habits"]:
+    if isinstance(h, dict):
+        sanitized_habits.append({
+            "id": h.get("id") or random.randint(100, 999),
+            "name": h.get("name") or "Rituel sans nom",
+            "cue": h.get("cue") or "Signal non spécifié",
+            "category": h.get("category") or "Mindset / Mental",
+            "done": bool(h.get("done", False))
+        })
+st.session_state["habits"] = sanitized_habits
+
+if "procrastinations" not in st.session_state or not isinstance(st.session_state["procrastinations"], list):
+    st.session_state["procrastinations"] = []
+
+sanitized_procrastinations = []
+for pr in st.session_state["procrastinations"]:
+    if isinstance(pr, dict):
+        sanitized_procrastinations.append({
+            "date": pr.get("date") or str(datetime.date.today()),
+            "task": pr.get("task") or "Tâche",
+            "trigger": pr.get("trigger") or "Friction",
+            "cost": pr.get("cost") or "Délai",
+            "win": pr.get("win") or "Action rapide"
+        })
+st.session_state["procrastinations"] = sanitized_procrastinations
+
+# Ensure fundamental metrics exist and are integers
+try:
+    st.session_state["level"] = int(st.session_state.get("level", 1))
+except Exception:
+    st.session_state["level"] = 1
+
+try:
+    st.session_state["xp"] = int(st.session_state.get("xp", 150))
+except Exception:
+    st.session_state["xp"] = 150
+
+try:
+    st.session_state["streak"] = int(st.session_state.get("streak", 12))
+except Exception:
+    st.session_state["streak"] = 12
 
 # Calculate levels and XP
 xp_needed = int(100 * (st.session_state["level"] ** 1.5))
@@ -601,7 +740,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Helper function to recalculate progress
+# Helper function to recalculate the completion progress of a goal based on completed micro-tasks
 def recalculate_goal_progress(goal_idx):
     goal = st.session_state["goals"][goal_idx]
     total_mt = 0
@@ -701,11 +840,15 @@ if menu == "🎯 Mes Objectifs & IA Sensei":
         st.info("Vous n'avez pas encore défini d'objectif. Utilisez le formulaire ci-dessus pour déclarer votre premier objectif !")
     else:
         st.markdown("### 🏆 Sélectionnez un objectif actif pour voir ses micro-actions :")
-        goal_names = [g["name"] for g in st.session_state["goals"]]
+        goal_names = [g.get("name", "Objectif sans nom") for g in st.session_state["goals"]]
         selected_goal_name = st.selectbox("Objectif actif :", goal_names, label_visibility="collapsed")
         
-        # Get selected goal and its index
-        goal_idx = next(i for i, g in enumerate(st.session_state["goals"]) if g["name"] == selected_goal_name)
+        # Get selected goal and its index safely
+        goal_idx = 0
+        for i, g in enumerate(st.session_state["goals"]):
+            if g.get("name") == selected_goal_name:
+                goal_idx = i
+                break
         goal = st.session_state["goals"][goal_idx]
         
         # Layout of details
@@ -780,10 +923,22 @@ if menu == "🎯 Mes Objectifs & IA Sensei":
                         new_project["stages"].append(new_stage)
                     
                     st.session_state["goals"][goal_idx]["projects"] = [new_project]
+                    
+                    # Store suggested habits automatically
+                    suggested_habits = action_plan.get("suggestedHabits", [])
+                    for sh in suggested_habits:
+                        st.session_state["habits"].append({
+                            "id": random.randint(1000, 9999),
+                            "name": f"Rituel : {sh.get('name', 'Nouveau rituel')}",
+                            "cue": f"{sh.get('cue', '')} ➔ {sh.get('routine', '')} (Récompense : {sh.get('reward', '')})",
+                            "category": goal["domain"],
+                            "done": False
+                        })
+                    
                     st.session_state["xp"] += 100
                     recalculate_goal_progress(goal_idx)
                     st.balloons()
-                    st.success("Plan d'action conçu avec succès par l'IA Sensei ! +100 XP accordés !")
+                    st.success("Plan d'action conçu avec succès par l'IA Sensei ! +100 XP accordés ! Des habitudes & rituels atomiques ont été créés pour vous dans '🧘 Mes Rituels quotidiens' !")
                     st.rerun()
         else:
             # Plan exists! We render it
@@ -841,11 +996,13 @@ if menu == "🎯 Mes Objectifs & IA Sensei":
                 # Form to add a manual custom micro-task simply
                 st.markdown("---")
                 st.markdown("##### ➕ Ajouter une micro-action personnalisée :")
-                new_custom_mt = st.text_input("Saisir une action rapide à accomplir en moins de 15 min :", placeholder="Ex: Envoyer un email de relance...", key="new_custom_mt_input")
+                new_custom_mt = st.text_input("Saisir une action rapide à accomplir en moins de 15 min :", placeholder="Ex: Envoyer un email de relance à Simon...", key="new_custom_mt_input")
                 if st.button("Ajouter à la liste active", use_container_width=True):
                     if new_custom_mt:
+                        # Append custom micro-task to the first task of the first stage of the first project
                         proj = st.session_state["goals"][goal_idx]["projects"][0]
                         if not proj["stages"]:
+                            # Create a dummy stage
                             proj["stages"] = [{
                                 "id": f"stage-{random.randint(100,999)}",
                                 "name": "Actions complémentaires",
@@ -870,7 +1027,7 @@ if menu == "🎯 Mes Objectifs & IA Sensei":
                         })
                         st.session_state["xp"] += 5
                         recalculate_goal_progress(goal_idx)
-                        st.success("Micro-action ajoutée ! +5 XP.")
+                        st.success("Micro-action personnalisée ajoutée avec succès ! +5 XP d'autodiscipline.")
                         st.rerun()
             else:
                 # Mode Projet Structuré (stages, tasks, microTasks details)
