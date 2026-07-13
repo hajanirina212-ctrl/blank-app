@@ -1,5 +1,6 @@
 import streamlit as st
 import sqlite3
+import json
 from datetime import date, datetime, timedelta
 import pandas as pd
 
@@ -23,6 +24,7 @@ def init_db():
             horizon TEXT NOT NULL,
             target_date TEXT,
             progress INTEGER DEFAULT 0,
+            auto_progress INTEGER DEFAULT 0,
             created_at TEXT
         )
     """)
@@ -51,6 +53,11 @@ def init_db():
         )
     """)
     conn.commit()
+    try:
+        c.execute("ALTER TABLE goals ADD COLUMN auto_progress INTEGER DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -75,13 +82,24 @@ def execute(query, params=()):
 
 def add_goal(title, horizon, target_date):
     execute(
-        "INSERT INTO goals (title, horizon, target_date, progress, created_at) VALUES (?, ?, ?, 0, ?)",
+        "INSERT INTO goals (title, horizon, target_date, progress, auto_progress, created_at) VALUES (?, ?, ?, 0, 0, ?)",
         (title, horizon, target_date, datetime.now().isoformat()),
+    )
+
+
+def update_goal(goal_id, title, horizon, target_date):
+    execute(
+        "UPDATE goals SET title = ?, horizon = ?, target_date = ? WHERE id = ?",
+        (title, horizon, target_date, goal_id),
     )
 
 
 def update_goal_progress(goal_id, progress):
     execute("UPDATE goals SET progress = ? WHERE id = ?", (progress, goal_id))
+
+
+def update_goal_auto(goal_id, auto):
+    execute("UPDATE goals SET auto_progress = ? WHERE id = ?", (1 if auto else 0, goal_id))
 
 
 def delete_goal(goal_id):
@@ -93,6 +111,13 @@ def add_task(title, time_str, goal_id):
     execute(
         "INSERT INTO tasks (title, time, goal_id, created_at) VALUES (?, ?, ?, ?)",
         (title, time_str, goal_id if goal_id else None, datetime.now().isoformat()),
+    )
+
+
+def update_task(task_id, title, time_str, goal_id):
+    execute(
+        "UPDATE tasks SET title = ?, time = ?, goal_id = ? WHERE id = ?",
+        (title, time_str, goal_id, task_id),
     )
 
 
@@ -160,8 +185,129 @@ def compute_kaizen_streak():
     return streak
 
 
+def compute_task_streak(task_id, created_at):
+    """Jours consécutifs où cette tâche précise a été faite (aujourd'hui inclus s'il est fait)."""
+    done_dates = set(df("SELECT date FROM completions WHERE task_id = ?", (task_id,))["date"].tolist())
+    created_date = date.fromisoformat(created_at[:10]) if created_at else date(2000, 1, 1)
+    streak = 0
+    cursor = date.today()
+    if cursor.isoformat() in done_dates:
+        streak = 1
+    cursor -= timedelta(days=1)
+    while cursor >= created_date:
+        if cursor.isoformat() in done_dates:
+            streak += 1
+            cursor -= timedelta(days=1)
+        else:
+            break
+    return streak
+
+
+def compute_auto_progress(goal_id, created_at, tasks_df):
+    linked = tasks_df[tasks_df["goal_id"] == goal_id]
+    if linked.empty:
+        return None
+    start_date = date.fromisoformat(created_at[:10]) if created_at else date.today()
+    if start_date > date.today():
+        start_date = date.today()
+    total_days = (date.today() - start_date).days + 1
+    total_possible = len(linked) * total_days
+    if total_possible <= 0:
+        return 0
+    comp_df = df("SELECT date, task_id FROM completions WHERE date >= ?", (start_date.isoformat(),))
+    done_count = len(comp_df[comp_df["task_id"].isin(linked["id"].tolist())])
+    return round(min(done_count / total_possible, 1.0) * 100)
+
+
+def period_label(time_str):
+    h = int(time_str.split(":")[0])
+    if h < 12:
+        return "🌅 Matin"
+    elif h < 18:
+        return "☀️ Après-midi"
+    else:
+        return "🌙 Soir"
+
+
+def get_missed_yesterday(tasks_df):
+    yesterday = date.today() - timedelta(days=1)
+    y_iso = yesterday.isoformat()
+    eligible = tasks_df[tasks_df["created_at"].str[:10] <= y_iso]
+    if eligible.empty:
+        return []
+    done_rows = df("SELECT task_id FROM completions WHERE date = ?", (y_iso,))
+    done_ids = set(done_rows["task_id"].tolist()) if not done_rows.empty else set()
+    missed = eligible[~eligible["id"].isin(done_ids)]
+    return missed["title"].tolist()
+
+
 HORIZON_LABELS = {"court": "Court terme", "moyen": "Moyen terme", "long": "Long terme"}
 HORIZON_COLORS = {"court": "🟢", "moyen": "🟠", "long": "🔴"}
+
+
+def confirm_delete(key, on_confirm, label="Supprimer"):
+    confirm_key = f"confirm_{key}"
+    if not st.session_state.get(confirm_key):
+        if st.button("🗑️", key=f"del_{key}", help=label):
+            st.session_state[confirm_key] = True
+            st.rerun()
+        return False
+    else:
+        st.warning(f"Confirmer : {label} ?", icon="⚠️")
+        cc1, cc2 = st.columns(2)
+        if cc1.button("Oui, supprimer", key=f"yes_{key}", type="primary"):
+            on_confirm()
+            st.session_state[confirm_key] = False
+            st.rerun()
+        if cc2.button("Annuler", key=f"no_{key}"):
+            st.session_state[confirm_key] = False
+            st.rerun()
+        return True
+
+
+# ----------------------------- Export / Import -----------------------------
+
+def export_data():
+    return {
+        "goals": df("SELECT * FROM goals").to_dict(orient="records"),
+        "tasks": df("SELECT * FROM tasks").to_dict(orient="records"),
+        "completions": df("SELECT * FROM completions").to_dict(orient="records"),
+        "kaizen_notes": df("SELECT * FROM kaizen_notes").to_dict(orient="records"),
+        "exported_at": datetime.now().isoformat(),
+    }
+
+
+def import_data(data):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM completions")
+    c.execute("DELETE FROM kaizen_notes")
+    c.execute("DELETE FROM tasks")
+    c.execute("DELETE FROM goals")
+    for g in data.get("goals", []):
+        c.execute(
+            "INSERT INTO goals (id, title, horizon, target_date, progress, auto_progress, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (g["id"], g["title"], g["horizon"], g.get("target_date"), g.get("progress", 0),
+             g.get("auto_progress", 0), g.get("created_at")),
+        )
+    for t in data.get("tasks", []):
+        c.execute(
+            "INSERT INTO tasks (id, title, time, goal_id, created_at) VALUES (?, ?, ?, ?, ?)",
+            (t["id"], t["title"], t["time"], t.get("goal_id"), t.get("created_at")),
+        )
+    for comp in data.get("completions", []):
+        c.execute(
+            "INSERT INTO completions (date, task_id, done) VALUES (?, ?, ?)",
+            (comp["date"], comp["task_id"], comp.get("done", 1)),
+        )
+    for k in data.get("kaizen_notes", []):
+        c.execute(
+            "INSERT INTO kaizen_notes (date, note) VALUES (?, ?)",
+            (k["date"], k.get("note", "")),
+        )
+    conn.commit()
+    conn.close()
 
 
 # ----------------------------- UI -----------------------------
@@ -189,6 +335,42 @@ st.caption("Une petite amélioration chaque jour, chaque semaine")
 tasks_df = df("SELECT * FROM tasks ORDER BY time ASC")
 goals_df = df("SELECT * FROM goals ORDER BY horizon, created_at")
 
+# ---------------- Sidebar : sauvegarde / restauration ----------------
+with st.sidebar:
+    st.header("💾 Sauvegarde")
+    st.caption("Recommandé régulièrement, surtout si l'app est hébergée gratuitement (stockage non garanti dans le temps).")
+
+    backup_json = json.dumps(export_data(), indent=2, ensure_ascii=False, default=str)
+    st.download_button(
+        "Exporter mes données (.json)",
+        data=backup_json,
+        file_name=f"kaizen-backup-{today_iso}.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    st.divider()
+    st.subheader("Restaurer")
+    uploaded = st.file_uploader("Fichier de sauvegarde (.json)", type="json")
+    if uploaded is not None:
+        confirm_restore = st.checkbox("Je confirme vouloir écraser mes données actuelles")
+        if st.button("Restaurer", disabled=not confirm_restore, use_container_width=True):
+            try:
+                data = json.loads(uploaded.read())
+                import_data(data)
+                st.success("Données restaurées.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de la restauration : {e}")
+
+# ---------------- Bandeau tâches manquées hier ----------------
+missed = get_missed_yesterday(tasks_df)
+if missed:
+    with st.expander(f"↩️ Hier, {len(missed)} tâche(s) non complétée(s)", expanded=False):
+        for m in missed:
+            st.markdown(f"- {m}")
+        st.caption("C'est une information, pas un reproche — un jour manqué ne casse pas la démarche kaizen.")
+
 col1, col2, col3 = st.columns(3)
 overall_streak = compute_overall_streak(tasks_df)
 today_rate = completion_rate(today_iso, tasks_df)
@@ -213,32 +395,70 @@ with tab_today:
         st.info("Aucune tâche encore. Ajoutez votre première tâche quotidienne ci-dessous.")
     else:
         current_min = now.hour * 60 + now.minute
-        for _, t in tasks_df.iterrows():
-            h, m = map(int, t["time"].split(":"))
-            diff = abs(current_min - (h * 60 + m))
-            is_current = diff <= 20
-            is_done = t["id"] in done_ids
+        tasks_df["_period"] = tasks_df["time"].apply(period_label)
 
-            goal_label = ""
-            if pd.notna(t["goal_id"]):
-                g = goals_df[goals_df["id"] == t["goal_id"]]
-                if not g.empty:
-                    goal_label = f" · → {g['title'].iloc[0]}"
+        for period in ["🌅 Matin", "☀️ Après-midi", "🌙 Soir"]:
+            period_tasks = tasks_df[tasks_df["_period"] == period]
+            if period_tasks.empty:
+                continue
+            st.markdown(f"**{period}**")
+            for _, t in period_tasks.iterrows():
+                h, m = map(int, t["time"].split(":"))
+                diff = abs(current_min - (h * 60 + m))
+                is_current = diff <= 20
+                is_done = t["id"] in done_ids
+                edit_key = f"edit_task_{t['id']}"
 
-            c1, c2, c3 = st.columns([0.12, 0.75, 0.13])
-            with c1:
-                checked = st.checkbox("", value=is_done, key=f"chk_{t['id']}_{today_iso}")
-                if checked != is_done:
-                    toggle_completion(int(t["id"]), today_iso, is_done)
-                    st.rerun()
-            with c2:
-                prefix = "🔶 " if is_current else ""
-                strike = f"~~{t['title']}~~" if is_done else t["title"]
-                st.markdown(f"{prefix}`{t['time']}` {strike}{goal_label}")
-            with c3:
-                if st.button("×", key=f"del_task_{t['id']}"):
-                    delete_task(int(t["id"]))
-                    st.rerun()
+                if st.session_state.get(edit_key):
+                    with st.form(f"edit_form_{t['id']}"):
+                        ec1, ec2, ec3 = st.columns([0.25, 0.5, 0.25])
+                        e_time = ec1.time_input("Heure", value=datetime.strptime(t["time"], "%H:%M").time())
+                        e_title = ec2.text_input("Titre", value=t["title"])
+                        goal_opts = ["Aucun objectif lié"] + goals_df["title"].tolist() if not goals_df.empty else ["Aucun objectif lié"]
+                        current_goal_title = "Aucun objectif lié"
+                        if pd.notna(t["goal_id"]):
+                            g_match = goals_df[goals_df["id"] == t["goal_id"]]
+                            if not g_match.empty:
+                                current_goal_title = g_match["title"].iloc[0]
+                        e_goal = ec3.selectbox("Objectif", goal_opts, index=goal_opts.index(current_goal_title) if current_goal_title in goal_opts else 0)
+                        fc1, fc2 = st.columns(2)
+                        if fc1.form_submit_button("Enregistrer", type="primary"):
+                            goal_id = None
+                            if e_goal != "Aucun objectif lié":
+                                goal_id = int(goals_df[goals_df["title"] == e_goal]["id"].iloc[0])
+                            update_task(int(t["id"]), e_title.strip(), e_time.strftime("%H:%M"), goal_id)
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                        if fc2.form_submit_button("Annuler"):
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                    continue
+
+                goal_label = ""
+                if pd.notna(t["goal_id"]):
+                    g = goals_df[goals_df["id"] == t["goal_id"]]
+                    if not g.empty:
+                        goal_label = f" · → {g['title'].iloc[0]}"
+
+                streak_n = compute_task_streak(int(t["id"]), t["created_at"])
+                streak_label = f" 🔥{streak_n}" if streak_n > 0 else ""
+
+                c1, c2, c3, c4 = st.columns([0.1, 0.65, 0.13, 0.12])
+                with c1:
+                    checked = st.checkbox("", value=is_done, key=f"chk_{t['id']}_{today_iso}")
+                    if checked != is_done:
+                        toggle_completion(int(t["id"]), today_iso, is_done)
+                        st.rerun()
+                with c2:
+                    prefix = "🔶 " if is_current else ""
+                    strike = f"~~{t['title']}~~" if is_done else t["title"]
+                    st.markdown(f"{prefix}`{t['time']}` {strike}{goal_label}{streak_label}")
+                with c3:
+                    if st.button("✏️", key=f"editbtn_{t['id']}"):
+                        st.session_state[edit_key] = True
+                        st.rerun()
+                with c4:
+                    confirm_delete(f"task_{t['id']}", lambda tid=int(t["id"]): delete_task(tid), label=f"supprimer « {t['title']} »")
 
     with st.form("add_task_form", clear_on_submit=True):
         st.markdown("**Ajouter une tâche**")
@@ -248,12 +468,15 @@ with tab_today:
         goal_options = ["Aucun objectif lié"] + goals_df["title"].tolist() if not goals_df.empty else ["Aucun objectif lié"]
         selected_goal_label = fc3.selectbox("Objectif", goal_options)
         submitted = st.form_submit_button("Ajouter")
-        if submitted and new_title.strip():
-            goal_id = None
-            if selected_goal_label != "Aucun objectif lié":
-                goal_id = int(goals_df[goals_df["title"] == selected_goal_label]["id"].iloc[0])
-            add_task(new_title.strip(), new_time.strftime("%H:%M"), goal_id)
-            st.rerun()
+        if submitted:
+            if not new_title.strip():
+                st.warning("Le titre de la tâche ne peut pas être vide.")
+            else:
+                goal_id = None
+                if selected_goal_label != "Aucun objectif lié":
+                    goal_id = int(goals_df[goals_df["title"] == selected_goal_label]["id"].iloc[0])
+                add_task(new_title.strip(), new_time.strftime("%H:%M"), goal_id)
+                st.rerun()
 
     st.divider()
     st.subheader("Kaizen du jour")
@@ -286,21 +509,65 @@ with tab_goals:
         st.info("Aucun objectif défini. Ajoutez un objectif court, moyen ou long terme.")
     else:
         for _, g in goals_df.iterrows():
+            edit_key = f"edit_goal_{g['id']}"
             with st.container(border=True):
-                gc1, gc2 = st.columns([0.75, 0.25])
+                if st.session_state.get(edit_key):
+                    with st.form(f"edit_goal_form_{g['id']}"):
+                        e_title = st.text_input("Titre", value=g["title"])
+                        gc1, gc2 = st.columns(2)
+                        e_horizon = gc1.selectbox(
+                            "Horizon", ["court", "moyen", "long"],
+                            index=["court", "moyen", "long"].index(g["horizon"]),
+                            format_func=lambda h: HORIZON_LABELS[h],
+                        )
+                        e_date = gc2.date_input(
+                            "Échéance",
+                            value=date.fromisoformat(g["target_date"]) if g["target_date"] else None,
+                        )
+                        fc1, fc2 = st.columns(2)
+                        if fc1.form_submit_button("Enregistrer", type="primary"):
+                            update_goal(int(g["id"]), e_title.strip(), e_horizon, e_date.isoformat() if e_date else "")
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                        if fc2.form_submit_button("Annuler"):
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                    continue
+
+                gc1, gc2, gc3, gc4 = st.columns([0.55, 0.2, 0.12, 0.13])
                 gc1.markdown(f"**{g['title']}**")
                 gc2.markdown(f"{HORIZON_COLORS[g['horizon']]} {HORIZON_LABELS[g['horizon']]}")
+                if gc3.button("✏️", key=f"editbtn_goal_{g['id']}"):
+                    st.session_state[edit_key] = True
+                    st.rerun()
+                with gc4:
+                    confirm_delete(f"goal_{g['id']}", lambda gid=int(g["id"]): delete_goal(gid), label=f"supprimer « {g['title']} »")
+
                 if g["target_date"]:
                     st.caption(f"Échéance : {g['target_date']}")
-                new_progress = st.slider(
-                    "Progression", 0, 100, int(g["progress"]), key=f"prog_{g['id']}"
-                )
-                if new_progress != g["progress"]:
-                    update_goal_progress(int(g["id"]), new_progress)
-                    st.rerun()
-                if st.button("Supprimer l'objectif", key=f"del_goal_{g['id']}"):
-                    delete_goal(int(g["id"]))
-                    st.rerun()
+
+                has_linked_tasks = not tasks_df[tasks_df["goal_id"] == g["id"]].empty
+                auto = bool(g["auto_progress"]) if has_linked_tasks else False
+                if has_linked_tasks:
+                    new_auto = st.checkbox(
+                        "Calculer automatiquement à partir des tâches liées",
+                        value=auto, key=f"auto_{g['id']}",
+                    )
+                    if new_auto != auto:
+                        update_goal_auto(int(g["id"]), new_auto)
+                        st.rerun()
+                    auto = new_auto
+
+                if auto:
+                    auto_val = compute_auto_progress(int(g["id"]), g["created_at"], tasks_df)
+                    st.progress(auto_val / 100, text=f"{auto_val}% (calculé automatiquement)")
+                else:
+                    new_progress = st.slider(
+                        "Progression", 0, 100, int(g["progress"]), key=f"prog_{g['id']}"
+                    )
+                    if new_progress != g["progress"]:
+                        update_goal_progress(int(g["id"]), new_progress)
+                        st.rerun()
 
     with st.form("add_goal_form", clear_on_submit=True):
         st.markdown("**Ajouter un objectif**")
@@ -309,9 +576,12 @@ with tab_goals:
         horizon = gc1.selectbox("Horizon", ["court", "moyen", "long"], format_func=lambda h: HORIZON_LABELS[h])
         target_date = gc2.date_input("Échéance (optionnel)", value=None)
         submitted_goal = st.form_submit_button("Ajouter l'objectif")
-        if submitted_goal and goal_title.strip():
-            add_goal(goal_title.strip(), horizon, target_date.isoformat() if target_date else "")
-            st.rerun()
+        if submitted_goal:
+            if not goal_title.strip():
+                st.warning("Le titre de l'objectif ne peut pas être vide.")
+            else:
+                add_goal(goal_title.strip(), horizon, target_date.isoformat() if target_date else "")
+                st.rerun()
 
 # ---------------- Tab: Review ----------------
 with tab_review:
@@ -331,6 +601,12 @@ with tab_review:
         chart_df = pd.DataFrame(rows).set_index("Jour")
         st.bar_chart(chart_df, color="#AE3A2C")
 
+        st.divider()
+        st.subheader("Régularité par tâche")
+        for _, t in tasks_df.iterrows():
+            s = compute_task_streak(int(t["id"]), t["created_at"])
+            st.markdown(f"🔥 **{s}** jour(s) — {t['title']} (`{t['time']}`)")
+
     st.divider()
     st.subheader("Progression des objectifs")
     if not goals_df.empty:
@@ -340,8 +616,12 @@ with tab_review:
                 continue
             st.markdown(f"**{HORIZON_LABELS[horizon]}**")
             for _, g in subset.iterrows():
-                st.progress(int(g["progress"]) / 100, text=f"{g['title']} — {g['progress']}%")
+                if g["auto_progress"]:
+                    val = compute_auto_progress(int(g["id"]), g["created_at"], tasks_df) or 0
+                else:
+                    val = int(g["progress"])
+                st.progress(val / 100, text=f"{g['title']} — {val}%")
     else:
         st.info("Aucun objectif à afficher pour le moment.")
 
-st.caption("Les données sont enregistrées dans une base SQLite locale (kaizen.db), propre à cette instance de l'app.")
+st.caption("Les données sont enregistrées dans une base SQLite locale (kaizen.db). Pensez à exporter une sauvegarde régulièrement via le menu latéral.")
