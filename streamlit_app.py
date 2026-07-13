@@ -342,7 +342,18 @@ def decompose_goal_with_gemini(goal_name, why_deep, domain):
     En tant qu'expert mondial de la méthode Kaizen, d'Atomic Habits (James Clear) et de la productivité :
     Décompose l'objectif de vie suivant en 1 projet clé, contenant 3 étapes progressives.
     Chaque étape doit contenir 2 tâches d'action.
-    Chaque tâche doit contenir exactement 3 micro-tâches Kaizen ultra-précises, réalisables en moins de 15 minutes.
+    Chaque tâche doit contenir exactement 3 micro-tâches Kaizen ultra-précises, pragmatiques, prêtes à être exécutées immédiatement en moins de 15 minutes.
+    
+    CRUCIAL POUR LES MICRO-TÂCHES KAIZEN : Ne donne pas de notions vagues comme "Planifier", "Analyser", "Faire des recherches" ou "Rédiger le contenu". Donne à la place l'ACTION PHYSIQUE OU DIGITALE EXACTE, ULTRA-CIBLÉE ET FACILE.
+    Exemples de micro-actions Kaizen à imiter :
+    - "Ouvrir un Google Doc vide et écrire le titre principal en gras"
+    - "Écrire une liste de 3 questions clés à poser au client sur un post-it"
+    - "Ouvrir l'application de vocabulaire et traduire 5 mots simples"
+    - "Prendre une feuille blanche, un crayon et dessiner le logo sous forme de 3 carrés simples"
+    - "Envoyer un SMS de 1 phrase à mon mentor pour lui demander s'il est libre"
+    - "Ouvrir mon navigateur sur la page d'inscription de l'hébergeur et remplir le champ email"
+    
+    Chaque micro-tâche doit être formulée comme un premier pas si ridiculeusement petit qu'il est IMPOSSIBLE de procrastiner dessus.
     
     De plus, génère également 2 à 3 rituels et habitudes saines (Atomic Habits) qui soutiennent directement la réalisation de cet objectif au quotidien. Chaque habitude doit comprendre : un nom simple, un signal déclencheur clair (Cue) (ex: 'Dès que je ferme mon ordinateur à 18h'), une routine Kaizen rapide (moins de 10-15 minutes) pour éliminer toute friction, et une récompense immédiate saine (Reward).
     
@@ -889,341 +900,329 @@ if menu == "🎯 Mes Objectifs & IA Sensei":
                     new_project = {
                         "id": f"proj-{random.randint(1000,9999)}",
                         "name": action_plan.get("projectName", f"Plan d'action de {goal['name']}"),
-                        "description": action_plan.get("projectDescription", "Décomposition en actions rapides."),
+                        "description": action_plan.get("projectDescription", ""),
                         "completed": False,
                         "stages": []
                     }
                     
-                    for stage_idx, s in enumerate(action_plan.get("stages", [])):
+                    for s_idx, stage_data in enumerate(action_plan.get("stages", [])):
                         new_stage = {
-                            "id": f"stage-{stage_idx}-{random.randint(100,999)}",
-                            "name": s.get("name", f"Étape {stage_idx+1}"),
-                            "description": s.get("description", ""),
+                            "id": f"stage-{s_idx}-{random.randint(100,999)}",
+                            "name": stage_data.get("name", f"Étape {s_idx + 1}"),
+                            "description": stage_data.get("description", ""),
                             "completed": False,
                             "tasks": []
                         }
                         
-                        for task_idx, t in enumerate(s.get("tasks", [])):
+                        for t_idx, task_data in enumerate(stage_data.get("tasks", [])):
                             new_task = {
-                                "id": f"task-{stage_idx}-{task_idx}-{random.randint(100,999)}",
-                                "name": t.get("name", "Tâche d'action"),
-                                "description": t.get("description", ""),
+                                "id": f"task-{s_idx}-{t_idx}-{random.randint(100,999)}",
+                                "name": task_data.get("name", f"Tâche {t_idx + 1}"),
+                                "description": task_data.get("description", ""),
                                 "status": "TODO",
                                 "microTasks": []
                             }
                             
-                            for mt_idx, mt in enumerate(t.get("microTasks", [])):
+                            for mt_idx, mt_data in enumerate(task_data.get("microTasks", [])):
                                 new_task["microTasks"].append({
-                                    "id": f"mt-{stage_idx}-{task_idx}-{mt_idx}-{random.randint(1000,9999)}",
-                                    "name": mt.get("name", "Action rapide de 15m"),
+                                    "id": f"mt-{s_idx}-{t_idx}-{mt_idx}-{random.randint(1000,9999)}",
+                                    "name": mt_data.get("name", "Action rapide"),
                                     "completed": False
                                 })
                                 
                             new_stage["tasks"].append(new_task)
                         new_project["stages"].append(new_stage)
-                    
-                    st.session_state["goals"][goal_idx]["projects"] = [new_project]
-                    
-                    # Store suggested habits automatically
-                    suggested_habits = action_plan.get("suggestedHabits", [])
-                    for sh in suggested_habits:
-                        st.session_state["habits"].append({
-                            "id": random.randint(1000, 9999),
-                            "name": f"Rituel : {sh.get('name', 'Nouveau rituel')}",
-                            "cue": f"{sh.get('cue', '')} ➔ {sh.get('routine', '')} (Récompense : {sh.get('reward', '')})",
-                            "category": goal["domain"],
-                            "done": False
-                        })
-                    
-                    st.session_state["xp"] += 100
-                    recalculate_goal_progress(goal_idx)
-                    st.balloons()
-                    st.success("Plan d'action conçu avec succès par l'IA Sensei ! +100 XP accordés ! Des habitudes & rituels atomiques ont été créés pour vous dans '🧘 Mes Rituels quotidiens' !")
-                    st.rerun()
-        else:
-            # Plan exists! We render it
-            flat_mts = []
-            for p_idx, p in enumerate(goal["projects"]):
-                for s_idx, s in enumerate(p["stages"]):
-                    for t_idx, t in enumerate(s["tasks"]):
-                        for mt_idx, mt in enumerate(t["microTasks"]):
-                            flat_mts.append({
-                                "id": mt["id"],
-                                "name": mt["name"],
-                                "completed": mt["completed"],
-                                "p_idx": p_idx,
-                                "s_idx": s_idx,
-                                "t_idx": t_idx,
-                                "mt_idx": mt_idx,
-                                "parent_task": t["name"]
+                        
+                    # Also append suggested atomic habits
+                    for h_data in action_plan.get("suggestedHabits", []):
+                        # Avoid duplicates
+                        if not any(h["name"].lower() == h_data["name"].lower() for h in st.session_state["habits"]):
+                            st.session_state["habits"].append({
+                                "id": random.randint(1000, 9999),
+                                "name": h_data["name"],
+                                "cue": f"{h_data['cue']} • Routine: {h_data['routine']} • Récompense: {h_data['reward']}",
+                                "category": goal["domain"],
+                                "done": False
                             })
-            
-            # Recalculate and show Progress bar
-            done_cnt = sum(1 for m in flat_mts if m["completed"])
-            total_cnt = len(flat_mts)
-            progress_val = int((done_cnt / total_cnt) * 100) if total_cnt > 0 else 0
-            st.session_state["goals"][goal_idx]["progress"] = progress_val
-            
-            st.markdown(f"**Progression globale de l'objectif : {progress_val}%**")
-            st.progress(progress_val / 100.0)
-            
-            if view_mode == "Mode Simple (Conseillé)":
-                st.markdown("#### ⚡ Vos micro-actions de moins de 15 minutes :")
-                st.write("Faites un petit pas aujourd'hui. Cochez une action rapide pour l'archiver.")
+                            
+                    goal["projects"] = [new_project]
+                    st.session_state["xp"] += 100
+                    st.success("Plan d'action Kaizen généré avec succès ! +100 XP d'apprentissage !")
+                    st.rerun()
+                    
+        # RENDER EXISTING ACTION PLAN
+        else:
+            project = goal["projects"][0]
+            st.markdown(f"### 📋 {project['name']}")
+            if project.get("description"):
+                st.markdown(f"*{project['description']}*")
                 
-                # Render list
-                for m in flat_mts:
-                    col_chk, col_txt = st.columns([1, 15])
-                    with col_chk:
-                        # Streamlit Checkbox
-                        is_mt_done = st.checkbox("", value=m["completed"], key=f"chk_mt_{m['id']}")
-                        if is_mt_done != m["completed"]:
-                            st.session_state["goals"][goal_idx]["projects"][m["p_idx"]]["stages"][m["s_idx"]]["tasks"][m["t_idx"]]["microTasks"][m["mt_idx"]]["completed"] = is_mt_done
-                            if is_mt_done:
-                                st.session_state["xp"] += 15
-                            else:
-                                st.session_state["xp"] = max(0, st.session_state["xp"] - 15)
-                            recalculate_goal_progress(goal_idx)
-                            st.rerun()
-                    with col_txt:
-                        text_style = "text-decoration: line-through; color: #64748B;" if m["completed"] else "color: #E2E8F0;"
+            # Progress bar
+            recalculate_goal_progress(goal_idx)
+            progress_pct = goal["progress"]
+            st.markdown(f"""
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#94A3B8; margin-bottom:4px;">
+                    <span>Progression globale de l'objectif</span>
+                    <span style="font-weight:700; color:#818CF8;">{progress_pct}%</span>
+                </div>
+                <div class="xp-bar" style="height:10px;">
+                    <div class="xp-progress" style="width: {progress_pct}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # STAGES RENDERER
+            for s_idx, stage in enumerate(project["stages"]):
+                with st.expander(f"📌 {stage['name']}", expanded=(s_idx == 0)):
+                    if stage.get("description"):
+                        st.markdown(f"<p style='font-size:12px; color:#94A3B8;'>{stage['description']}</p>", unsafe_allow_html=True)
+                        
+                    # Tasks in stage
+                    for t_idx, task in enumerate(stage["tasks"]):
                         st.markdown(f"""
-                        <div style="font-size:13px; font-weight:500; {text_style} margin-top: 2px;">
-                            {m['name']} <span style="font-size:10px; color:#6366F1; font-family:'JetBrains Mono'; margin-left:8px;">[Tâche : {m['parent_task']}]</span>
+                        <div style="background-color:#070A13; padding:12px 16px; border-radius:10px; border:1px solid #1E293B; margin-top:10px;">
+                            <div style="font-weight:700; font-size:13px; color:#F1F5F9;">{task['name']}</div>
+                            <div style="font-size:11px; color:#94A3B8; margin-top:2px;">{task['description']}</div>
                         </div>
                         """, unsafe_allow_html=True)
-                
-                # Form to add a manual custom micro-task simply
-                st.markdown("---")
-                st.markdown("##### ➕ Ajouter une micro-action personnalisée :")
-                new_custom_mt = st.text_input("Saisir une action rapide à accomplir en moins de 15 min :", placeholder="Ex: Envoyer un email de relance à Simon...", key="new_custom_mt_input")
-                if st.button("Ajouter à la liste active", use_container_width=True):
-                    if new_custom_mt:
-                        # Append custom micro-task to the first task of the first stage of the first project
-                        proj = st.session_state["goals"][goal_idx]["projects"][0]
-                        if not proj["stages"]:
-                            # Create a dummy stage
-                            proj["stages"] = [{
-                                "id": f"stage-{random.randint(100,999)}",
-                                "name": "Actions complémentaires",
-                                "description": "Micro-actions ajoutées manuellement",
-                                "completed": False,
-                                "tasks": []
-                            }]
-                        stage = proj["stages"][0]
-                        if not stage["tasks"]:
-                            stage["tasks"] = [{
-                                "id": f"task-{random.randint(100,999)}",
-                                "name": "Actions Libres",
-                                "description": "Actions simples",
-                                "status": "TODO",
-                                "microTasks": []
-                            }]
-                        task = stage["tasks"][0]
-                        task["microTasks"].append({
-                            "id": f"mt-custom-{random.randint(1000,9999)}",
-                            "name": new_custom_mt,
-                            "completed": False
-                        })
-                        st.session_state["xp"] += 5
-                        recalculate_goal_progress(goal_idx)
-                        st.success("Micro-action personnalisée ajoutée avec succès ! +5 XP d'autodiscipline.")
-                        st.rerun()
-            else:
-                # Mode Projet Structuré (stages, tasks, microTasks details)
-                st.markdown("#### 🧩 Structure Détaillée de votre Plan d'Action :")
-                
-                for p_idx, p in enumerate(goal["projects"]):
-                    st.markdown(f"##### Projet : {p['name']}")
-                    st.write(p["description"])
-                    
-                    for s_idx, s in enumerate(p["stages"]):
-                        with st.expander(f"📌 {s['name']}", expanded=True):
-                            st.caption(s["description"])
+                        
+                        # Micro tasks listed directly with checkboxes
+                        for mt_idx, mt in enumerate(task["microTasks"]):
+                            checkbox_id = f"chk-{goal['id']}-{s_idx}-{t_idx}-{mt_idx}"
+                            is_checked = st.checkbox(
+                                f"🔬 {mt['name']} (< 15 mins)",
+                                value=mt["completed"],
+                                key=checkbox_id
+                            )
                             
-                            for t_idx, t in enumerate(s["tasks"]):
-                                st.markdown(f"**🔹 Tâche principale : {t['name']}**")
-                                st.markdown(f"<span style='font-size:11px; color:#94A3B8; margin-left: 12px;'>{t['description']}</span>", unsafe_allow_html=True)
-                                
-                                # Render micro tasks
-                                for mt_idx, mt in enumerate(t["microTasks"]):
-                                    col_chk_adv, col_txt_adv = st.columns([1, 15])
-                                    with col_chk_adv:
-                                        is_mt_done = st.checkbox("", value=mt["completed"], key=f"chk_mt_adv_{mt['id']}")
-                                        if is_mt_done != mt["completed"]:
-                                            st.session_state["goals"][goal_idx]["projects"][p_idx]["stages"][s_idx]["tasks"][t_idx]["microTasks"][mt_idx]["completed"] = is_mt_done
-                                            if is_mt_done:
-                                                st.session_state["xp"] += 15
-                                            else:
-                                                st.session_state["xp"] = max(0, st.session_state["xp"] - 15)
-                                            recalculate_goal_progress(goal_idx)
-                                            st.rerun()
-                                    with col_txt_adv:
-                                        text_style = "text-decoration: line-through; color: #64748B;" if mt["completed"] else "color: #E2E8F0;"
-                                        st.markdown(f"""
-                                        <div style="font-size:12px; {text_style} margin-top:2px;">
-                                            {mt['name']}
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                st.markdown('<div style="margin-bottom:12px;"></div>', unsafe_allow_html=True)
+                            # Update and handle XP
+                            if is_checked != mt["completed"]:
+                                mt["completed"] = is_checked
+                                if is_checked:
+                                    st.session_state["xp"] += 15
+                                    st.toast(f"Félicitations ! Micro-tâche complétée. +15 XP", icon="🔬")
+                                else:
+                                    st.session_state["xp"] = max(0, st.session_state["xp"] - 15)
+                                recalculate_goal_progress(goal_idx)
+                                st.rerun()
 
-        # BUTTON TO RESET OR REMOVE AN OBJECTIVE
-        st.markdown("---")
-        if st.button("❌ Supprimer cet objectif", type="secondary", use_container_width=True):
-            st.session_state["goals"].pop(goal_idx)
-            st.warning("Objectif supprimé.")
-            st.rerun()
+            # DELETE GOAL ZONE
+            st.markdown("---")
+            if st.button("🗑️ Supprimer cet objectif", key=f"del_g_{goal['id']}", use_container_width=True):
+                st.session_state["goals"].pop(goal_idx)
+                st.warning("Objectif supprimé.")
+                st.rerun()
 
 # ----------------- Tab 2: Base de Données & Stockage -----------------
 elif menu == "🗄️ Base de Données & Stockage":
-    st.markdown("## 🗄️ Architecture de Données & Stockage de KaizenOS")
+    st.markdown("## 🗄️ Base de Données & Indicateurs Kaizen")
+    st.markdown("Suivi d'avancement technique, de l'XP et de la persistance de vos rituels.")
     
-    st.markdown("""
+    st.markdown(f"""
     <div class="database-card">
-        <h3 style="margin:0 0 10px 0; font-size:18px; font-weight:800; color:#F8FAFC;">📁 Où se trouve notre base de données ?</h3>
-        <p style="margin:0 0 12px 0; font-size:13px; color:#E2E8F0; line-height:1.6;">
-            Actuellement, l'application fonctionne avec un système de stockage hybride hautement performant :
+        <h3 style="margin:0 0 8px 0; font-size:18px; font-weight:800; color:#F8FAFC;">🛡️ KAIZEN CORE v1.0.0</h3>
+        <p style="margin:0 0 16px 0; font-size:13px; color:#94A3B8;">
+            Toutes vos informations de progression, de niveau et de rituels atomiques sont stockées de manière réactive.
         </p>
-        <ul style="font-size:13px; color:#94A3B8; line-height:1.6; margin-left:20px;">
-            <li><strong>Streamlit Session State :</strong> Pour l'interface Streamlit Python, vos données sont conservées en mémoire vive applicative (<code style="background-color:#0F172A; padding:2px 6px; border-radius:4px; color:#F43F5E;">st.session_state</code>). C'est ce qui permet une réactivité instantanée à la milliseconde sans aucune latence réseau.</li>
-            <li><strong>Browser localStorage (Navigateur client) :</strong> Pour la version Web interactive React, vos données sont automatiquement enregistrées et persistées directement dans la mémoire physique locale de votre propre navigateur (<code style="background-color:#0F172A; padding:2px 6px; border-radius:4px; color:#F43F5E;">localStorage</code>).</li>
-        </ul>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">
+            <div style="background:rgba(11, 15, 25, 0.6); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:10px; color:#94A3B8; text-transform:uppercase;">NIVEAU ACTUEL</div>
+                <div style="font-size:18px; font-weight:900; color:#F1F5F9; margin-top:2px;">Niveau {st.session_state['level']}</div>
+            </div>
+            <div style="background:rgba(11, 15, 25, 0.6); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:10px; color:#94A3B8; text-transform:uppercase;">EXPÉRIENCE TOTAL</div>
+                <div style="font-size:18px; font-weight:900; color:#F1F5F9; margin-top:2px;">{st.session_state['xp']} XP</div>
+            </div>
+            <div style="background:rgba(11, 15, 25, 0.6); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:10px; color:#94A3B8; text-transform:uppercase;">STREAK DE JOURS</div>
+                <div style="font-size:18px; font-weight:900; color:#F1F5F9; margin-top:2px;">🔥 {st.session_state['streak']} Jours</div>
+            </div>
+            <div style="background:rgba(11, 15, 25, 0.6); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:10px; color:#94A3B8; text-transform:uppercase;">DISCIPLINE RATE</div>
+                <div style="font-size:18px; font-weight:900; color:#F1F5F9; margin-top:2px;">{discipline_score}%</div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-    col_db1, col_db2 = st.columns(2)
-    with col_db1:
-        st.markdown("""
-        <div class="kaizen-card" style="height:100%;">
-            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#F8FAFC;">✔️ Avantages de cette approche</h4>
-            <ul style="font-size:12px; color:#94A3B8; line-height:1.6; margin-left:15px; padding-left:0;">
-                <li><strong>Zéro connexion requise :</strong> L'application fonctionne entièrement hors-ligne, vous permettant de rester concentré sans dépendre d'une connexion internet fluctuante.</li>
-                <li><strong>Confidentialité absolue :</strong> Vos objectifs de vie, vos motivations profondes et vos rituels quotidiens restent stockés chez vous, sur votre appareil, et ne sont jamais revendus à des tiers.</li>
-                <li><strong>Vitesse instantanée :</strong> Aucune requête SQL distante n'interrompt votre flux de Deep Work (zéro délai de chargement).</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with col_db2:
-        st.markdown("""
-        <div class="kaizen-card" style="height:100%;">
-            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#F8FAFC;">💡 Besoin d'une Synchronisation Cloud ?</h4>
-            <p style="font-size:12px; color:#94A3B8; line-height:1.6; margin:0 0 10px 0;">
-                Si vous souhaitez utiliser KaizenOS sur plusieurs appareils simultanément (comme votre téléphone portable et votre ordinateur de bureau) tout en conservant vos progrès à jour, nous pouvons configurer une base de données Cloud persistante !
-            </p>
-            <p style="font-size:12px; color:#E2E8F0; line-height:1.6; margin:0;">
-                Dites-moi simplement : <strong>« Configure Firebase Firestore »</strong> et j'activerai le module de base de données à distance sécurisé pour synchroniser vos données sur le Cloud.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # VIEW DATABASE CONTENT (JSON INSPECTOR)
-    st.markdown("### 🔍 Inspecteur de Base de Données en direct :")
-    st.write("Voici la représentation JSON de vos données en temps réel telles qu'elles sont stockées dans l'application :")
     
-    inspect_data = {
-        "level": st.session_state["level"],
-        "xp": st.session_state["xp"],
-        "streak": st.session_state["streak"],
-        "goals": st.session_state["goals"],
-        "habits": st.session_state["habits"],
-        "procrastinations": st.session_state["procrastinations"]
-    }
-    st.json(inspect_data)
+    # LEVEL UP TRIGGER
+    if st.session_state["xp"] >= xp_needed:
+        st.balloons()
+        st.session_state["level"] += 1
+        st.session_state["xp"] = st.session_state["xp"] - xp_needed
+        st.success(f"🎉 Niveau supérieur ! Vous venez de franchir le Niveau {st.session_state['level']} ! Continuez ainsi !")
+        st.rerun()
+
+    # SECTION: SCHEMA SQL repliable
+    with st.expander("📊 Schéma Relationnel SQL complet (Pour déploiement PostgreSQL / Cloud SQL)", expanded=False):
+        st.markdown("""
+        Pour assurer la pérennité du projet, voici les structures SQL robustes de l'application :
+        """)
+        st.code("""
+-- Table principale des Objectifs prioritaires
+CREATE TABLE goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  why TEXT NOT NULL, -- Simon Sinek "Start with Why"
+  start_date DATE NOT NULL,
+  target_date DATE NOT NULL,
+  priority VARCHAR(20) DEFAULT 'Moyenne',
+  difficulty VARCHAR(20) DEFAULT 'Moyen',
+  domain VARCHAR(50) NOT NULL,
+  progress INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des Habitudes (Atomic Habits)
+CREATE TABLE habits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  frequency VARCHAR(20) DEFAULT 'daily', -- daily, weekly, monthly
+  cue TEXT NOT NULL, -- Le signal déclencheur
+  routine TEXT NOT NULL, -- L'action micro-Kaizen
+  reward TEXT NOT NULL, -- La récompense d'ancrage
+  domain VARCHAR(50) NOT NULL,
+  streak INT DEFAULT 0,
+  best_streak INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table Historique de Validation (Suivi précis)
+CREATE TABLE habit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  habit_id UUID REFERENCES habits(id) ON DELETE CASCADE,
+  completed_date DATE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(habit_id, completed_date)
+);
+        """, language="sql")
+
+    # ADMIN ACTIONS
+    st.markdown("### ⚙️ Actions Administrateur")
+    col_reset1, col_reset2 = st.columns([8, 4])
+    with col_reset1:
+        st.write("Si vous souhaitez vider le cache et repartir sur une base de démonstration vide :")
+    with col_reset2:
+        if st.button("⚠️ Réinitialiser toutes les données", type="secondary", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
 
 # ----------------- Tab 3: Mes Rituels quotidiens -----------------
 elif menu == "🧘 Mes Rituels quotidiens":
-    st.markdown("## 🧘 Rituels & Habitudes d'Identité")
-    st.markdown("James Clear (Atomic Habits) : « Chaque action que vous entreprenez est un vote pour le type de personne que vous souhaitez devenir. »")
+    st.markdown("## 🧘 Rituels d'Identité & Habitudes Saines")
+    st.markdown("James Clear (Atomic Habits) enseigne que le changement durable naît d'une identité renforcée par des rituels réguliers. Plus un rituel est petit, moins il engendre de friction.")
     
-    # Simple form to add a habit
-    with st.expander("➕ Enregistrer un nouveau Rituel quotidien (Conditionnement)", expanded=False):
-        h_name = st.text_input("Nom du rituel :", placeholder="Ex: Faire 20 pushups, Méditer 5 min...")
-        h_cue = st.text_input("Signal de démarrage (Cue) :", placeholder="Ex: Immédiatement après avoir posé ma tasse de café le matin...")
-        h_cat = st.selectbox("Catégorie :", ["Professionnel", "Santé / Physique", "Mindset / Mental", "Social / Autre"])
-        if st.button("Enregistrer le Rituel 💾", use_container_width=True):
+    # Habit status list
+    st.markdown("### Vos Rituels actifs du Jour")
+    
+    if not st.session_state["habits"]:
+        st.info("Aucun rituel d'identité n'a été créé.")
+    else:
+        for idx, h in enumerate(st.session_state["habits"]):
+            col_h1, col_h2, col_h3 = st.columns([8, 2, 2])
+            with col_h1:
+                st.markdown(f"""
+                <div style="background-color:#111827; padding:12px; border-radius:8px; border:1px solid #1F2937;">
+                    <div style="font-weight:700; font-size:14px; color:#F1F5F9;">{h['name']}</div>
+                    <div style="font-size:11px; color:#94A3B8; margin-top:2px;">⚡ {h['cue']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_h2:
+                # Button to validate habit
+                if h["done"]:
+                    st.button("✓ Validé", key=f"hab_done_{h['id']}", disabled=True, use_container_width=True)
+                else:
+                    if st.button("Valider", key=f"hab_val_{h['id']}", type="primary", use_container_width=True):
+                        h["done"] = True
+                        st.session_state["xp"] += 15
+                        st.session_state["streak"] += 1
+                        st.toast(f"Rituel validé ! +15 XP / Streak incrémentée !", icon="🧘")
+                        st.rerun()
+            with col_h3:
+                if st.button("Supprimer", key=f"hab_del_{h['id']}", use_container_width=True):
+                    st.session_state["habits"].pop(idx)
+                    st.rerun()
+                    
+    # Form to add an Habit
+    st.markdown("---")
+    st.markdown("### ➕ Créer un rituel sur mesure")
+    with st.form("add_habit_form"):
+        h_name = st.text_input("Nom de l'habitude :", placeholder="Ex: Journal d'idées, Yoga, Rangement de bureau")
+        h_cue = st.text_input("Signal déclencheur de l'action (Cue) :", placeholder="Ex: Dès que je ferme mon ordinateur à 18h...")
+        h_cat = st.selectbox("Catégorie :", ["Mindset / Mental", "Santé / Physique", "Relations", "Finances", "Travail"])
+        
+        if st.form_submit_button("Programmer le Rituel 🚀", use_container_width=True):
             if h_name and h_cue:
                 st.session_state["habits"].append({
-                    "id": random.randint(100, 999),
+                    "id": random.randint(1000, 9999),
                     "name": h_name,
                     "cue": h_cue,
                     "category": h_cat,
                     "done": False
                 })
-                st.success("Rituel quotidien ajouté !")
+                st.success("Rituel programmé !")
                 st.rerun()
-
-    # Habit Tracker List
-    st.markdown("### Vos Rituels pour aujourd'hui :")
-    for idx, h in enumerate(st.session_state["habits"]):
-        col_chk_hab, col_det_hab, col_del_hab = st.columns([1, 8, 1])
-        with col_chk_hab:
-            is_done = st.checkbox("", value=h["done"], key=f"hab_chk_{h['id']}")
-            if is_done != h["done"]:
-                st.session_state["habits"][idx]["done"] = is_done
-                if is_done:
-                    st.session_state["xp"] += 25
-                else:
-                    st.session_state["xp"] = max(0, st.session_state["xp"] - 25)
-                st.rerun()
-        with col_det_hab:
-            style_h = "text-decoration: line-through; color: #64748B;" if h["done"] else "color: #E2E8F0;"
-            st.markdown(f"""
-            <div style="{style_h} margin-top:2px;">
-                <span style="font-weight:700; font-size:13px;">{h['name']}</span> <span style="font-size:10px; color:#A1A1AA;" class="mono">[{h['category']}]</span><br>
-                <span style="font-size:11px; color:#94A3B8;">⚡ Déclencheur : {h['cue']}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_del_hab:
-            if st.button("❌", key=f"del_hab_{h['id']}"):
-                st.session_state["habits"].pop(idx)
-                st.warning("Rituel supprimé.")
-                st.rerun()
+            else:
+                st.warning("Veuillez remplir tous les champs obligatoires.")
 
 # ----------------- Tab 4: Anti-Procrastination -----------------
 elif menu == "⚡ Anti-Procrastination":
-    st.markdown("## 🛡️ Anti-Procrastination : Journal d'Évitement")
-    st.markdown("Comprenez les mécanismes psychologiques de l'évitement comportemental et brisez-les avec la règle des 2 minutes d'Atomic Habits.")
+    st.markdown("## ⚡ Outil Anti-Procrastination Kaizen")
+    st.markdown("La procrastination est une réponse biologique d'évitement face à une tâche perçue comme trop lourde, ennuyeuse ou stressante. Pour la vaincre, déconstruisons la friction !")
     
-    with st.expander("📝 Consigner une friction d'action", expanded=True):
-        ap_task = st.text_input("Tâche évitée :", placeholder="Ex: Rédiger le rapport trimestriel...")
-        ap_trigger = st.selectbox("Facteur déclencheur (La cause) :", [
-            "Peur de l'imperfection / Perfectionnisme",
-            "Manque de clarté / Ambiguité de la tâche",
-            "Fatigue / Surcharge cognitive",
-            "Tâche ennuyeuse / Absence de récompense immédiate"
+    with st.expander("🎯 Enregistrer un blocage d'action", expanded=True):
+        p_task = st.text_input("Quelle tâche repoussez-vous depuis plusieurs jours ?", placeholder="Ex: Préparer ma déclaration de revenus, aller courir...")
+        p_trigger = st.selectbox("Quelle est la nature du blocage psychologique ?", [
+            "Peur de l'échec (Perfectionnisme)",
+            "Peur de l'inconnu (Séquence floue)",
+            "Manque d'énergie immédiate",
+            "Tâche perçue comme ennuyeuse / fastidieuse"
         ])
-        ap_cost = st.text_input("Coût du délai (Conséquence si repoussé) :", placeholder="Ex: Stress intense et retard de livraison...")
-        ap_win = st.text_input("La Micro-Victoire d'Entrée (Moins de 2 minutes) :", placeholder="Ex: Ouvrir le document Word et écrire juste un titre.")
+        p_cost = st.text_input("Quel est le coût réel de cet évitement ?", placeholder="Ex: Sentiment de culpabilité permanent, retard accumulé...")
         
-        if st.button("Enregistrer l'Analyse 🛡️", use_container_width=True):
-            if ap_task and ap_win:
+        st.markdown("""
+        **💡 La Règle Kaizen des 5 minutes :**
+        Définissez un premier pas ridiculement petit et facile, à réaliser en moins de 5 minutes chrono pour amorcer l'action sans effort.
+        """)
+        p_win = st.text_input("Votre micro-action de déblocage (< 5 min) :", placeholder="Ex: Ouvrir le site des impôts et retrouver mon mot de passe")
+        
+        if st.button("Enregistrer & Débloquer (+15 XP) 🚀", use_container_width=True):
+            if p_task and p_win:
                 st.session_state["procrastinations"].append({
                     "date": str(datetime.date.today()),
-                    "task": ap_task,
-                    "trigger": ap_trigger,
-                    "cost": ap_cost,
-                    "win": ap_win
+                    "task": p_task,
+                    "trigger": p_trigger,
+                    "cost": p_cost,
+                    "win": p_win
                 })
-                st.success("Analyse enregistrée ! Réalisez votre micro-victoire de 2 minutes maintenant.")
+                st.session_state["xp"] += 15
+                st.success("Félicitations pour cette prise de conscience ! Votre micro-victoire est planifiée. +15 XP")
                 st.rerun()
+            else:
+                st.warning("Veuillez spécifier la tâche et l'action de déblocage.")
 
-    # Display procrastination log
-    st.markdown("### Analyses de Friction Passées :")
-    for idx, log in enumerate(st.session_state["procrastinations"]):
-        st.markdown(f"""
-        <div class="kaizen-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="font-weight:700; font-size:14px; color:#F8FAFC;">{log['task']}</span>
-                <span style="font-size:10px; color:#94A3B8;" class="mono">{log['date']}</span>
+    # List of Logs
+    if st.session_state["procrastinations"]:
+        st.markdown("### Vos Déblocages en cours")
+        for idx, log in enumerate(st.session_state["procrastinations"]):
+            st.markdown(f"""
+            <div class="kaizen-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="status-badge" style="background-color:rgba(239, 68, 68, 0.1); color:#F87171; border: 1px solid rgba(239, 68, 68, 0.2)">BLOQUÉ</span>
+                    <span style="font-size:11px; color:#94A3B8; font-family:'JetBrains Mono';">{log['date']}</span>
+                </div>
+                <h4 style="margin:8px 0 4px 0; font-size:15px; font-weight:800; color:#F1F5F9;">{log['task']}</h4>
+                <div style="font-size:12px; line-height:1.6; color:#94A3B8; margin-bottom: 12px;">
+                    ⚠️ <strong>Déclencheur :</strong> {log['trigger']}<br>
+                    📉 <strong>Coût de l'évitement :</strong> {log['cost']}<br>
+                    🛡️ <strong>Micro-Victoire conseillée :</strong> <span style="color:#818CF8; font-weight:700;">{log['win']}</span>
+                </div>
             </div>
-            <div style="font-size:12px; line-height:1.6; color:#94A3B8;">
-                ⚠️ <strong>Déclencheur :</strong> {log['trigger']}<br>
-                📉 <strong>Coût de l'évitement :</strong> {log['cost']}<br>
-                🛡️ <strong>Micro-Victoire conseillée :</strong> <span style="color:#818CF8; font-weight:700;">{log['win']}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button(f"Supprimer l'analyse {idx+1}", key=f"del_ap_{idx}"):
-            st.session_state["procrastinations"].pop(idx)
-            st.rerun()
+            """, unsafe_allow_html=True)
+            if st.button(f"Supprimer l'analyse {idx+1}", key=f"del_ap_{idx}"):
+                st.session_state["procrastinations"].pop(idx)
+                st.rerun()
