@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<!-- Viewport : pas de zoom, pas de scroll, plein écran (encoches incluses) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#141c3a">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Carrot Quest 3D</title>
+<style>
+/* =========================================================
+ * STYLES — HUD, joystick, menus (aucune dépendance externe)
+ * ========================================================= */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+  background: #141c3a; color: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  touch-action: none; -ms-touch-action: none;           /* bloque scroll + zoom tactiles */
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  overscroll-behavior: none;
+}
+#game { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block; outline: none; }
+.hidden { display: none !important; }
+button { font-family: inherit; -webkit-appearance: none; appearance: none; cursor: pointer; }
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  padding: 10px 12px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  display: flex; justify-content: space-between; align-items: flex-start;
+  pointer-events: none;
+}
+.hud-row { display: flex; flex-wrap: wrap; max-width: calc(100% - 110px); }
+.pill {
+  margin: 0 6px 6px 0; padding: 6px 12px; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(34,46,98,.88), rgba(18,24,54,.88));
+  box-shadow: 0 4px 12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.14);
+  font-size: 15px; font-weight: 700; white-space: nowrap; line-height: 1.25;
+}
+.pill b { color: #ffd166; }
+.pill.danger { background: linear-gradient(180deg, #ff4757, #c0392b); animation: pulse .5s infinite alternate; }
+.pill.done { background: linear-gradient(180deg, #2ed573, #1e9e52); }
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+.hud-btns { display: flex; pointer-events: auto; }
+.hud-btn {
+  width: 46px; height: 46px; margin-left: 8px; border: none; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(34,46,98,.92), rgba(18,24,54,.92));
+  box-shadow: 0 4px 12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.14);
+  font-size: 20px; color: #fff; padding: 0;
+}
+.hud-btn:active { transform: scale(.92); }
+
+/* ---------- Contrôles tactiles ---------- */
+#controls { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9; pointer-events: none; }
+#joy {
+  position: absolute; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,.05));
+  border: 2px solid rgba(255,255,255,.3);
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+}
+#joy.idle { opacity: .35; }
+#joyKnob {
+  position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #9fe8ff 40%, #2ec4e6);
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
+}
+#btnDash {
+  position: absolute; width: 92px; height: 92px; border-radius: 50%; border: none; overflow: hidden;
+  right: 26px; bottom: 34px;
+  right: calc(26px + env(safe-area-inset-right));
+  bottom: calc(34px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffb347, #ff6a3d);
+  box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 10px 24px rgba(0,0,0,.4), inset 0 2px 0 rgba(255,255,255,.35);
+  color: #fff; font-weight: 900; pointer-events: auto; padding: 0;
+}
+#btnDash .ico { font-size: 30px; line-height: 1; display: block; position: relative; z-index: 2; }
+#btnDash .lbl { font-size: 12px; letter-spacing: 1px; display: block; position: relative; z-index: 2; }
+#dashCd { position: absolute; left: 0; bottom: 0; width: 100%; height: 0; background: rgba(10,14,40,.6); z-index: 1; }
+#btnDash:active { transform: translateY(3px); }
+
+/* ---------- Écrans (menu, fin, pause) ---------- */
+.screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+  display: flex; padding: 16px; overflow-y: auto; touch-action: pan-y;
+  background: radial-gradient(ellipse at center, rgba(20,28,60,.2), rgba(8,12,30,.72));
+}
+.card {
+  margin: auto; width: 100%; max-width: 420px; padding: 26px 22px; border-radius: 26px; text-align: center;
+  background: linear-gradient(160deg, #2e3f86 0%, #1a2352 100%);
+  box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.logo { font-size: 54px; line-height: 1; }
+.title { font-size: 38px; margin: 6px 0 8px; font-weight: 900; letter-spacing: -.5px; color: #ff9f43; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .title { background: linear-gradient(90deg, #ffd166, #ff8a1f 50%, #ff5e62); -webkit-background-clip: text; background-clip: text; color: transparent; }
+}
+.title span { font-size: .6em; vertical-align: super; }
+.sub { margin: 0 0 12px; font-size: 15px; line-height: 1.45; color: #d6ddff; }
+.legend { margin: 6px 0 4px; font-size: 13px; color: #c9d1ff; }
+.legend span { display: inline-block; margin: 3px 6px; white-space: nowrap; }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+.btn {
+  display: block; width: 100%; margin: 12px 0 0; padding: 16px; border: none; border-radius: 16px;
+  font-size: 19px; font-weight: 800; color: #fff;
+  box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 10px 20px rgba(0,0,0,.3);
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.3); }
+.btn-primary { background: linear-gradient(180deg, #ffa53b, #ff6a3d); }
+.btn-secondary { background: linear-gradient(180deg, #4f6bff, #3346c9); }
+.btn-ghost { background: rgba(255,255,255,.12); box-shadow: none; font-size: 16px; }
+.stats { margin-top: 14px; font-size: 15px; color: #ffd166; }
+.stats-box { margin: 10px 0 4px; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.2); font-size: 16px; line-height: 1.7; }
+.stats-box b { color: #ffd166; }
+.help { margin-top: 14px; font-size: 12.5px; line-height: 1.5; color: #9aa6d8; }
+#endIcon { font-size: 60px; line-height: 1; }
+#endTitle { font-size: 30px; margin: 8px 0 6px; font-weight: 900; }
+#endText { margin: 0; color: #d6ddff; font-size: 15px; }
+
+/* ---------- Toast + flash ---------- */
+#toast {
+  position: fixed; left: 50%; top: 24%; z-index: 15; max-width: 90%;
+  -webkit-transform: translate(-50%, -10px); transform: translate(-50%, -10px);
+  padding: 12px 20px; border-radius: 16px; font-size: 18px; font-weight: 800; text-align: center;
+  background: linear-gradient(180deg, rgba(255,165,59,.95), rgba(255,106,61,.95));
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+}
+#toast.show { opacity: 1; -webkit-transform: translate(-50%, 0); transform: translate(-50%, 0); }
+#flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 8; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(255,0,40,0) 40%, rgba(255,0,40,.55)); transition: opacity .35s; }
+#flash.on { opacity: 1; transition: none; }
+
+/* ---------- Petits écrans en paysage ---------- */
+@media (max-height: 460px) {
+  .card { padding: 14px 18px; }
+  .logo, .help, .legend { display: none; }
+  .title { font-size: 28px; margin-top: 0; }
+  .btn { padding: 11px; font-size: 16px; margin-top: 8px; }
+  #endIcon { font-size: 40px; }
+  #endTitle { font-size: 24px; }
+  .pill { font-size: 13px; padding: 5px 10px; }
+  #btnDash { width: 80px; height: 80px; }
+}
+@media (max-width: 360px) {
+  .pill { font-size: 13px; padding: 5px 9px; margin-right: 4px; }
+  .hud-btn { width: 40px; height: 40px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Canvas WebGL (rendu Three.js) -->
+<canvas id="game"></canvas>
+
+<!-- HUD : infos de partie -->
+<div id="hud" class="hidden">
+  <div class="hud-row">
+    <div class="pill">Niv <b id="hLevel">1</b></div>
+    <div class="pill" id="pCarrots">🥕 <b id="hCarrots">0</b></div>
+    <div class="pill" id="hLives">❤️❤️❤️</div>
+    <div class="pill">⭐ <b id="hScore">0</b></div>
+    <div class="pill" id="pTimer">⏱ <b id="hTime">0:00</b></div>
+  </div>
+  <div class="hud-btns">
+    <button id="btnMute" class="hud-btn" aria-label="Son">🔊</button>
+    <button id="btnPause" class="hud-btn" aria-label="Pause">⏸</button>
+  </div>
+</div>
+
+<!-- Contrôles tactiles : joystick (gauche) + dash (droite) -->
+<div id="controls" class="hidden">
+  <div id="joy" class="idle"><div id="joyKnob"></div></div>
+  <button id="btnDash" aria-label="Dash"><div id="dashCd"></div><span class="ico">⚡</span><span class="lbl">DASH</span></button>
+</div>
+
+<div id="flash"></div>
+<div id="toast"></div>
+
+<!-- Menu principal -->
+<div id="menu" class="screen">
+  <div class="card">
+    <div class="logo">🥕</div>
+    <h1 class="title">Carrot Quest <span>3D</span></h1>
+    <p class="sub">Aide <b>Pipo</b> à ramasser toutes les carottes pour ouvrir la porte du labyrinthe… sans te faire attraper par les gardiens !</p>
+    <div class="legend">
+      <span><i class="dot" style="background:#2ee6c8"></i>Pipo (toi)</span>
+      <span><i class="dot" style="background:#ff3b5c"></i>Grumble</span>
+      <span><i class="dot" style="background:#9b5cff"></i>Zigzag</span>
+      <span><i class="dot" style="background:#ffc93c"></i>Sneaky</span>
+    </div>
+    <button id="btnPlay" class="btn btn-primary">▶ Jouer</button>
+    <button id="btnContinue" class="btn btn-secondary hidden">Continuer</button>
+    <div class="stats">🏆 Meilleur score : <b id="bestScore">0</b></div>
+    <div class="help">📱 Joystick : pose le pouce à gauche · ⚡ Dash : bouton à droite<br>⌨️ ZQSD / WASD / flèches · E ou Espace = dash · P = pause</div>
+  </div>
+</div>
+
+<!-- Écran de fin (niveau terminé / défaite / victoire finale) -->
+<div id="endScreen" class="screen hidden">
+  <div class="card">
+    <div id="endIcon">🏆</div>
+    <div id="endTitle">Bravo !</div>
+    <p id="endText"></p>
+    <div id="endStats" class="stats-box"></div>
+    <button id="btnNext" class="btn btn-primary">Niveau suivant ▶</button>
+    <button id="btnRetry" class="btn btn-primary">↻ Rejouer</button>
+    <button id="btnMenu" class="btn btn-ghost">Menu</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pauseScreen" class="screen hidden">
+  <div class="card">
+    <div id="endIcon2" class="logo">⏸</div>
+    <div class="title" style="font-size:32px">Pause</div>
+    <button id="btnResume" class="btn btn-primary">▶ Reprendre</button>
+    <button id="btnRestart" class="btn btn-secondary">↻ Recommencer le niveau</button>
+    <button id="btnQuit" class="btn btn-ghost">Menu</button>
+  </div>
+</div>
+
+<!-- Erreur (WebGL ou Three.js indisponible) -->
+<div id="errorScreen" class="screen hidden">
+  <div class="card">
+    <div class="logo">⚠️</div>
+    <div id="endTitle2" style="font-size:24px;font-weight:900;margin:8px 0">Oups…</div>
+    <p id="errorText" class="sub"></p>
+  </div>
+</div>
+
+<!-- =========================================================
+     THREE.JS
+     - Version en ligne : chargée depuis le CDN unpkg (r128, build UMD).
+     - Si le CDN échoue (pas d'internet), on tente le fichier local
+       "three.min.js" placé dans le même dossier que ce HTML.
+     - La version "index.html" (offline) remplace ce bloc par le code
+       de Three.js directement intégré (voir build.py).
+     ========================================================= -->
+<!-- THREE:BEGIN -->
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script>if (!window.THREE) { document.write('<script src="three.min.js"><\/script>'); }</script>
+<!-- THREE:END -->
+
+<script>
+/* =================================================================
+ *  CARROT QUEST 3D — jeu 100 % original (personnages, titre, code)
+ *  Sections : 1.Config  2.Utils  3.Save/Sound  4.Level  5.Pathfinding
+ *             6.Render  7.Player  8.Enemies  9.Physics  10.Input
+ *             11.UI  12.Game (états)  13.GameLoop  14.Boot
+ * ================================================================= */
+(function () {
+'use strict';
+
+/* =================================================================
+ * 1. CONFIG — modifie ces valeurs pour régler le jeu
+ * ================================================================= */
+var CONFIG = {
+  CELL: 2,               // taille d'une case en unités 3D
+  WALL_H: 1.2,           // hauteur des murs (bas = le joueur n'est jamais caché)
+  MAX_LEVEL: 8,          // nombre de niveaux avant la victoire finale
+
+  PLAYER_SPEED: 5.2,     // unités / seconde (≈ 2,6 cases/s)
+  PLAYER_RADIUS: 0.5,    // rayon de collision du joueur
+  DASH_MULT: 2.4,        // multiplicateur de vitesse pendant le dash
+  DASH_TIME: 0.22,       // durée du dash (s)
+  DASH_COOLDOWN: 4,      // recharge du dash (s)
+
+  START_LIVES: 3,
+  MAX_LIVES: 5,
+  INVULN_TIME: 2,        // invulnérabilité après un coup (s)
+  EXTRA_LIFE_EVERY: 3,   // +1 vie tous les N niveaux terminés
+
+  HIT_DIST: 0.85,        // distance de contact ennemi
+  PICK_DIST: 0.95,       // distance de ramassage carotte
+  DOOR_DIST: 1.05,       // distance pour franchir la porte
+
+  ENEMY_BASE_SPEED: 1.5, // cases / seconde au niveau 1
+  ENEMY_SPEED_STEP: 0.07,// +7 % par niveau
+  ENEMY_SPEED_MAX: 2.3,  // plafond (le joueur reste plus rapide)
+  REPLAN_TIME: 0.4,      // recalcul A* toutes les 0,4 s maximum
+  TELEPORT_EVERY: 10,    // Sneaky se téléporte toutes les N s (niveau 4+)
+
+  CAM_FOV: 50,
+  CAM_HEIGHT: 13,        // hauteur / recul => inclinaison (13/10 ≈ 52° ; 12/12 = 45° exact)
+  CAM_BACK: 10,
+  SHADOW_MAP: 1024,
+
+  JOY_RADIUS: 55,        // rayon du joystick en pixels
+  JOY_DEADZONE: 0.15,
+
+  SCORE_CARROT: 100,
+  SCORE_HIT: -50,
+  SCORE_TIME_BONUS: 10,  // points par seconde restante
+
+  SAVE_KEY: 'carrotquest3d_save_v1',
+
+  COLORS: {
+    bg: 0x243264,
+    floorA: '#43ab6f', floorB: '#3a9a62',
+    outer: 0x1c2a5a,
+    wall: 0x5b6ee1,
+    player: 0x2ee6c8, playerEar: 0x1fb9a1,
+    grumble: 0xff3b5c, zigzag: 0x9b5cff, sneaky: 0xffc93c,
+    carrot: 0xff8a1f, leaf: 0x3bd16f,
+    doorFrame: 0xf0d9a8, doorLocked: 0xff4757, doorOpen: 0x2ed573,
+    arrow: 0xffd166
+  }
+};
+
+/* Paramètres de chaque niveau : difficulté progressive */
+function levelParams(n) {
+  var size = Math.min(11 + 2 * (n - 1), 23);          // 11x11 → 23x23 (toujours impair)
+  return {
+    n: n,
+    size: size,
+    carrots: 4 + 2 * n,                                // 6, 8, 10…
+    time: Math.round(40 + size * size * 0.3),          // secondes
+    enemySpeed: Math.min(CONFIG.ENEMY_BASE_SPEED * (1 + CONFIG.ENEMY_SPEED_STEP * (n - 1)), CONFIG.ENEMY_SPEED_MAX),
+    detect: Math.min(4 + n, 11),                       // rayon de détection (en cases, par chemin)
+    loops: 0.06,                                       // proportion de murs ouverts en plus (boucles)
+    teleport: n >= 4,                                  // Sneaky se téléporte à partir du niveau 4
+    seed: 1337 + n * 7919                              // graine : un niveau = toujours le même labyrinthe
+  };
+}
+
+/* =================================================================
+ * 2. UTILS
+ * ================================================================= */
+var DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+// Générateur pseudo-aléatoire avec graine (reproductible)
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rng) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerpAngle(a, b, t) {
+  var d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+function manhattan(ax, ay, bx, by) { return Math.abs(ax - bx) + Math.abs(ay - by); }
+function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+function $(id) { return document.getElementById(id); }
+
+/* =================================================================
+ * 3. SAVE (localStorage) + SOUND (WebAudio synthétisé, aucun fichier)
+ * ================================================================= */
+var Save = {
+  data: { best: 0, maxLevel: 1, muted: false },
+  load: function () {
+    try {
+      var s = window.localStorage && localStorage.getItem(CONFIG.SAVE_KEY);
+      if (s) {
+        var d = JSON.parse(s);
+        for (var k in this.data) if (d[k] !== undefined) this.data[k] = d[k];
+      }
+    } catch (e) { /* stockage indisponible : le jeu marche quand même */ }
+  },
+  save: function () {
+    try { if (window.localStorage) localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(this.data)); } catch (e) {}
+  }
+};
+
+var Sound = {
+  ctx: null,
+  init: function () {
+    if (this.ctx) { if (this.ctx.state === 'suspended' && this.ctx.resume) this.ctx.resume(); return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { this.ctx = new AC(); } catch (e) { this.ctx = null; }
+  },
+  // Joue un bip : fréquence, durée, forme d'onde, volume, glissando, délai
+  beep: function (freq, dur, type, vol, slideTo, delay) {
+    if (Save.data.muted || !this.ctx) return;
+    try {
+      var c = this.ctx, t = c.currentTime + (delay || 0);
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = type || 'square';
+      o.frequency.setValueAtTime(freq, t);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+      g.gain.setValueAtTime(vol || 0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  },
+  pickup: function () { this.beep(660, 0.07, 'square', 0.06); this.beep(990, 0.1, 'square', 0.06, 0, 0.06); },
+  unlock: function () { var n = [523, 659, 784, 1046]; for (var i = 0; i < n.length; i++) this.beep(n[i], 0.14, 'triangle', 0.1, 0, i * 0.09); },
+  hit: function () { this.beep(220, 0.35, 'sawtooth', 0.1, 55); },
+  dash: function () { this.beep(280, 0.15, 'triangle', 0.08, 820); },
+  tick: function () { this.beep(1200, 0.04, 'square', 0.03); },
+  poof: function () { this.beep(900, 0.2, 'sine', 0.05, 200); },
+  win: function () { var n = [523, 659, 784, 1046, 1318]; for (var i = 0; i < n.length; i++) this.beep(n[i], 0.18, 'square', 0.07, 0, i * 0.1); },
+  lose: function () { var n = [440, 349, 294, 220]; for (var i = 0; i < n.length; i++) this.beep(n[i], 0.25, 'triangle', 0.1, 0, i * 0.18); }
+};
+
+/* =================================================================
+ * 4. LEVEL — génération du labyrinthe (DFS + boucles) et placement
+ *    Grille : g[y][x] = 1 mur, 0 sol. Case (x,y) → monde (x*CELL, y*CELL)
+ * ================================================================= */
+function generateMaze(size, rng, loops) {
+  var g = [], x, y;
+  for (y = 0; y < size; y++) { var row = []; for (x = 0; x < size; x++) row.push(1); g.push(row); }
+
+  // Recursive backtracker (version itérative avec pile) sur les cases impaires
+  var steps = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+  var stack = [[1, 1]]; g[1][1] = 0;
+  while (stack.length) {
+    var cur = stack[stack.length - 1], opts = [];
+    for (var k = 0; k < 4; k++) {
+      var nx = cur[0] + steps[k][0], ny = cur[1] + steps[k][1];
+      if (nx > 0 && ny > 0 && nx < size - 1 && ny < size - 1 && g[ny][nx] === 1) opts.push(steps[k]);
+    }
+    if (!opts.length) { stack.pop(); continue; }
+    var d = opts[Math.floor(rng() * opts.length)];
+    g[cur[1] + d[1] / 2][cur[0] + d[0] / 2] = 0;
+    g[cur[1] + d[1]][cur[0] + d[0]] = 0;
+    stack.push([cur[0] + d[0], cur[1] + d[1]]);
+  }
+
+  // Ouvre quelques murs supplémentaires → boucles (sinon impossible de semer les ennemis)
+  var extra = Math.floor(size * size * loops), tries = 0;
+  while (extra > 0 && tries++ < 5000) {
+    x = 1 + Math.floor(rng() * (size - 2)); y = 1 + Math.floor(rng() * (size - 2));
+    if (g[y][x] !== 1) continue;
+    var horiz = (x % 2 === 0 && y % 2 === 1 && g[y][x - 1] === 0 && g[y][x + 1] === 0);
+    var vert = (x % 2 === 1 && y % 2 === 0 && g[y - 1][x] === 0 && g[y + 1][x] === 0);
+    if (horiz || vert) { g[y][x] = 0; extra--; }
+  }
+  return g;
+}
+
+function isOpen(g, x, y) { return y >= 0 && y < g.length && x >= 0 && x < g[0].length && g[y][x] === 0; }
+
+// Distances (en cases) depuis (sx,sy) par parcours en largeur
+function bfs(g, sx, sy) {
+  var H = g.length, W = g[0].length, d = [], y;
+  for (y = 0; y < H; y++) d.push(new Array(W).fill(-1));
+  if (!isOpen(g, sx, sy)) return d;
+  var q = [[sx, sy]], h = 0; d[sy][sx] = 0;
+  while (h < q.length) {
+    var c = q[h++];
+    for (var k = 0; k < 4; k++) {
+      var nx = c[0] + DIRS4[k][0], ny = c[1] + DIRS4[k][1];
+      if (isOpen(g, nx, ny) && d[ny][nx] < 0) { d[ny][nx] = d[c[1]][c[0]] + 1; q.push([nx, ny]); }
+    }
+  }
+  return d;
+}
+
+function wallCount(g, x, y) {
+  var n = 0;
+  for (var k = 0; k < 4; k++) if (!isOpen(g, x + DIRS4[k][0], y + DIRS4[k][1])) n++;
+  return n;
+}
+
+/* Construit toutes les données d'un niveau (sans la 3D) */
+function createLevelData(n) {
+  var P = levelParams(n), rng = mulberry32(P.seed);
+  var g = generateMaze(P.size, rng, P.loops);
+  var start = { x: 1, y: 1 };
+  var dist = bfs(g, start.x, start.y);
+  var open = [], maxD = 0, door = { x: 1, y: 1 }, x, y;
+  for (y = 0; y < P.size; y++) for (x = 0; x < P.size; x++) {
+    if (g[y][x] !== 0) continue;
+    open.push([x, y]);
+    if (dist[y][x] > maxD) { maxD = dist[y][x]; door = { x: x, y: y }; }
+  }
+
+  // Carottes : culs-de-sac en priorité, puis cases aléatoires
+  var dead = [], other = [];
+  for (var i = 0; i < open.length; i++) {
+    var c = open[i];
+    if ((c[0] === start.x && c[1] === start.y) || (c[0] === door.x && c[1] === door.y)) continue;
+    if (dist[c[1]][c[0]] < 2) continue;
+    if (wallCount(g, c[0], c[1]) === 3) dead.push(c); else other.push(c);
+  }
+  shuffle(dead, rng); shuffle(other, rng);
+  var carrots = dead.concat(other).slice(0, Math.min(P.carrots, 24));
+
+  // Ennemis : loin du départ et bien espacés entre eux
+  var minD = Math.max(6, Math.floor(maxD * 0.45)), cands = [];
+  for (i = 0; i < open.length; i++) {
+    c = open[i];
+    if (dist[c[1]][c[0]] >= minD && !(c[0] === door.x && c[1] === door.y)) cands.push(c);
+  }
+  if (cands.length < 3) cands = open.filter(function (o) { return dist[o[1]][o[0]] >= 4; });
+  shuffle(cands, rng);
+  var spawns = [];
+  for (i = 0; i < cands.length && spawns.length < 3; i++) {
+    var ok = true;
+    for (var j = 0; j < spawns.length; j++) if (manhattan(cands[i][0], cands[i][1], spawns[j][0], spawns[j][1]) < P.size / 3) ok = false;
+    if (ok) spawns.push(cands[i]);
+  }
+  for (i = 0; i < cands.length && spawns.length < 3; i++) if (spawns.indexOf(cands[i]) < 0) spawns.push(cands[i]);
+
+  return { P: P, grid: g, size: P.size, start: start, door: door, carrots: carrots, spawns: spawns, open: open };
+}
+
+/* =================================================================
+ * 5. PATHFINDING — A* sur grille 4 directions (tas binaire)
+ * ================================================================= */
+function heapPush(I, F, idx, f) {
+  I.push(idx); F.push(f);
+  var n = I.length - 1;
+  while (n > 0) {
+    var p = (n - 1) >> 1;
+    if (F[p] <= F[n]) break;
+    var ti = I[p]; I[p] = I[n]; I[n] = ti; var tf = F[p]; F[p] = F[n]; F[n] = tf;
+    n = p;
+  }
+}
+function heapPop(I, F) {
+  var top = I[0], li = I.pop(), lf = F.pop();
+  if (I.length) {
+    I[0] = li; F[0] = lf;
+    var n = 0, L = I.length;
+    for (;;) {
+      var l = 2 * n + 1, r = l + 1, m = n;
+      if (l < L && F[l] < F[m]) m = l;
+      if (r < L && F[r] < F[m]) m = r;
+      if (m === n) break;
+      var ti = I[m]; I[m] = I[n]; I[n] = ti; var tf = F[m]; F[m] = F[n]; F[n] = tf;
+      n = m;
+    }
+  }
+  return top;
+}
+/* Renvoie la liste des cases [[x,y],…] (sans la case de départ), [] si déjà arrivé, null si impossible */
+function astar(g, sx, sy, gx, gy) {
+  if (sx === gx && sy === gy) return [];
+  if (!isOpen(g, gx, gy) || !isOpen(g, sx, sy)) return null;
+  var H = g.length, W = g[0].length, N = W * H;
+  var gs = new Float64Array(N), came = new Int32Array(N), closed = new Uint8Array(N);
+  for (var i = 0; i < N; i++) { gs[i] = 1e9; came[i] = -1; }
+  var start = sy * W + sx, goal = gy * W + gx;
+  gs[start] = 0;
+  var I = [start], F = [manhattan(sx, sy, gx, gy)];
+  while (I.length) {
+    var cur = heapPop(I, F);
+    if (cur === goal) break;
+    if (closed[cur]) continue;
+    closed[cur] = 1;
+    var cx = cur % W, cy = (cur / W) | 0;
+    for (var k = 0; k < 4; k++) {
+      var nx = cx + DIRS4[k][0], ny = cy + DIRS4[k][1];
+      if (g[ny][nx] !== 0) continue;
+      var ni = ny * W + nx;
+      if (closed[ni]) continue;
+      var ng = gs[cur] + 1;
+      if (ng < gs[ni]) { gs[ni] = ng; came[ni] = cur; heapPush(I, F, ni, ng + manhattan(nx, ny, gx, gy)); }
+    }
+  }
+  if (came[goal] < 0) return null;
+  var path = [], c = goal;
+  while (c !== start) { path.push([c % W, (c / W) | 0]); c = came[c]; }
+  path.reverse();
+  return path;
+}
+
+/* =================================================================
+ * 6. RENDER — scène, caméra, lumières, géométries/matériaux partagés
+ * ================================================================= */
+var renderer, scene, camera, hemi, sun, floorTex, outerGround;
+var GEO = {}, MAT = {};
+var levelMeshes = [];       // meshes propres au niveau (sol + murs), détruits à chaque niveau
+var camK = 1;               // facteur de recul caméra (portrait = plus loin)
+var hasInstanceColor = false;
+
+function initRender() {
+  var canvas = $('game');
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: dpr < 1.5, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(dpr);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;   // plus léger que PCFSoft
+  renderer.setClearColor(CONFIG.COLORS.bg);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(CONFIG.COLORS.bg);
+  scene.fog = new THREE.Fog(CONFIG.COLORS.bg, 20, 48);   // brouillard léger
+
+  camera = new THREE.PerspectiveCamera(CONFIG.CAM_FOV, 1, 0.1, 200);
+
+  // Lumières : ambiante (hémisphère) + directionnelle avec ombres
+  hemi = new THREE.HemisphereLight(0xe6ecff, 0x2e4a2a, 0.7);
+  scene.add(hemi);
+  sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(CONFIG.SHADOW_MAP, CONFIG.SHADOW_MAP);
+  var sc = sun.shadow.camera; sc.left = -16; sc.right = 16; sc.top = 16; sc.bottom = -16; sc.near = 1; sc.far = 60;
+  sun.shadow.bias = -0.0015;
+  scene.add(sun); scene.add(sun.target);
+
+  hasInstanceColor = typeof THREE.InstancedMesh.prototype.setColorAt === 'function';
+  createShared();
+
+  // Grand sol sombre autour du labyrinthe (évite le "vide")
+  outerGround = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), MAT.outer);
+  outerGround.rotation.x = -Math.PI / 2; outerGround.position.y = -0.02;
+  scene.add(outerGround);
+}
+
+/* Texture de sol en damier générée en JS (aucune image) */
+function makeFloorTexture() {
+  var cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = CONFIG.COLORS.floorA; ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = CONFIG.COLORS.floorB; ctx.fillRect(0, 0, 64, 64); ctx.fillRect(64, 64, 64, 64);
+  // petits brins d'herbe
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  for (var i = 0; i < 60; i++) ctx.fillRect((i * 37) % 128, (i * 53) % 128, 2, 5);
+  var t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.NearestFilter;
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+
+/* Géométries et matériaux créés UNE fois et réutilisés partout */
+function createShared() {
+  var C = CONFIG.CELL, K = CONFIG.COLORS;
+  GEO.wall = new THREE.BoxGeometry(C, CONFIG.WALL_H, C);
+  GEO.bodyCyl = new THREE.CylinderGeometry(0.42, 0.42, 0.5, 16);
+  GEO.bodySph = new THREE.SphereGeometry(0.42, 16, 12);
+  GEO.ear = new THREE.BoxGeometry(0.14, 0.45, 0.08);
+  GEO.eye = new THREE.SphereGeometry(0.12, 10, 8);
+  GEO.pupil = new THREE.SphereGeometry(0.065, 8, 6);
+  GEO.enemyBox = new THREE.BoxGeometry(0.85, 0.85, 0.85);
+  GEO.enemySph = new THREE.SphereGeometry(0.5, 16, 12);
+  GEO.enemyCone = new THREE.ConeGeometry(0.52, 1.15, 14);
+  GEO.carrot = new THREE.ConeGeometry(0.22, 0.75, 8); GEO.carrot.rotateX(Math.PI); // pointe vers le bas
+  GEO.leaf = new THREE.ConeGeometry(0.13, 0.35, 5);
+  GEO.doorPost = new THREE.BoxGeometry(0.3, 2.1, 0.3);
+  GEO.doorTop = new THREE.BoxGeometry(2.0, 0.3, 0.34);
+  GEO.doorPanel = new THREE.BoxGeometry(1.4, 1.8, 0.12);
+  GEO.ring = new THREE.TorusGeometry(0.65, 0.08, 8, 28);
+  GEO.arrow = new THREE.ConeGeometry(0.22, 0.55, 8); GEO.arrow.rotateX(Math.PI / 2); // pointe vers +z
+
+  function std(color, extra) {
+    var o = { color: color, roughness: 0.6, metalness: 0 };
+    if (extra) for (var k in extra) o[k] = extra[k];
+    return new THREE.MeshStandardMaterial(o);
+  }
+  floorTex = makeFloorTexture();
+  MAT.floor = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 1, metalness: 0 });
+  MAT.outer = std(K.outer, { roughness: 1 });
+  MAT.wall = std(hasInstanceColor ? 0xffffff : K.wall, { roughness: 0.75 });
+  MAT.player = std(K.player, { roughness: 0.35 });
+  MAT.playerEar = std(K.playerEar, { roughness: 0.5 });
+  MAT.white = std(0xffffff, { roughness: 0.3 });
+  MAT.black = std(0x111122, { roughness: 0.3 });
+  MAT.grumble = std(K.grumble, { emissive: K.grumble, emissiveIntensity: 0 });
+  MAT.zigzag = std(K.zigzag, { emissive: K.zigzag, emissiveIntensity: 0 });
+  MAT.sneaky = std(K.sneaky, { emissive: K.sneaky, emissiveIntensity: 0 });
+  MAT.carrot = std(K.carrot, { emissive: K.carrot, emissiveIntensity: 0.25, roughness: 0.5 });
+  MAT.leaf = std(K.leaf, { roughness: 0.6 });
+  MAT.doorFrame = std(K.doorFrame, { roughness: 0.7 });
+  MAT.doorLocked = std(K.doorLocked, { emissive: K.doorLocked, emissiveIntensity: 0.55 });
+  MAT.doorOpen = std(K.doorOpen, { emissive: K.doorOpen, emissiveIntensity: 0.9, transparent: true, opacity: 0.75 });
+  MAT.arrow = std(K.arrow, { emissive: K.arrow, emissiveIntensity: 0.7 });
+}
+
+function mesh(geo, mat, shadow) {
+  var m = new THREE.Mesh(geo, mat);
+  if (shadow) m.castShadow = true;
+  return m;
+}
+function addEyes(parent, y, z, spread, scale) {
+  for (var s = -1; s <= 1; s += 2) {
+    var eye = mesh(GEO.eye, MAT.white);
+    eye.position.set(s * spread, y, z); eye.scale.setScalar(scale);
+    var pupil = mesh(GEO.pupil, MAT.black); pupil.position.set(0, 0, 0.08);
+    eye.add(pupil); parent.add(eye);
+  }
+}
+
+/* Construit le sol + les murs du niveau (InstancedMesh = 1 seul draw call pour tous les murs) */
+function buildLevelMeshes(L) {
+  clearLevelMeshes();
+  var C = CONFIG.CELL, size = L.size, g = L.grid, x, y;
+
+  var floorGeo = new THREE.PlaneGeometry(size * C, size * C); floorGeo.rotateX(-Math.PI / 2);
+  var floor = new THREE.Mesh(floorGeo, MAT.floor);
+  floor.position.set((size - 1) * C / 2, 0, (size - 1) * C / 2);
+  floor.receiveShadow = true;
+  floorTex.repeat.set(size / 2, size / 2);
+  scene.add(floor); levelMeshes.push(floor);
+
+  var count = 0;
+  for (y = 0; y < size; y++) for (x = 0; x < size; x++) if (g[y][x] === 1) count++;
+  var walls = new THREE.InstancedMesh(GEO.wall, MAT.wall, count);
+  var m = new THREE.Matrix4(), col = new THREE.Color(), base = new THREE.Color(CONFIG.COLORS.wall);
+  var rng = mulberry32(L.P.seed + 1), i = 0;
+  for (y = 0; y < size; y++) for (x = 0; x < size; x++) {
+    if (g[y][x] !== 1) continue;
+    m.makeTranslation(x * C, CONFIG.WALL_H / 2, y * C);
+    walls.setMatrixAt(i, m);
+    if (hasInstanceColor) { col.copy(base).offsetHSL((rng() - 0.5) * 0.03, 0, (rng() - 0.5) * 0.1); walls.setColorAt(i, col); }
+    i++;
+  }
+  walls.instanceMatrix.needsUpdate = true;
+  if (walls.instanceColor) walls.instanceColor.needsUpdate = true;
+  walls.castShadow = true; walls.receiveShadow = true;
+  // En r128, le frustum culling d'un InstancedMesh utilise la sphère d'UNE seule boîte :
+  // il masquerait tout le labyrinthe à tort. On le désactive pour CE mesh uniquement
+  // (tous les autres objets gardent le frustum culling par défaut).
+  walls.frustumCulled = false;
+  scene.add(walls); levelMeshes.push(walls);
+}
+function clearLevelMeshes() {
+  for (var i = 0; i < levelMeshes.length; i++) {
+    var o = levelMeshes[i];
+    scene.remove(o);
+    if (o.isInstancedMesh) { if (o.dispose) o.dispose(); }
+    else if (o.geometry) o.geometry.dispose();   // géométrie du sol (propre au niveau)
+  }
+  levelMeshes = [];
+}
+
+/* =================================================================
+ * 7. PLAYER — "Pipo", petite capsule turquoise
+ * ================================================================= */
+var player = { x: 0, z: 0, dirX: 0, dirZ: 1, walk: 0, mesh: null, body: null };
+
+function createPlayer() {
+  var g = new THREE.Group(), body = new THREE.Group();
+  var cyl = mesh(GEO.bodyCyl, MAT.player, true); cyl.position.y = 0.72;
+  var top = mesh(GEO.bodySph, MAT.player, true); top.position.y = 0.97;
+  var bot = mesh(GEO.bodySph, MAT.player, true); bot.position.y = 0.47;
+  body.add(cyl); body.add(top); body.add(bot);
+  for (var s = -1; s <= 1; s += 2) {
+    var ear = mesh(GEO.ear, MAT.playerEar, true);
+    ear.position.set(s * 0.2, 1.48, -0.02); ear.rotation.z = -s * 0.25;
+    body.add(ear);
+  }
+  addEyes(body, 1.02, 0.34, 0.15, 1);
+  g.add(body);
+  player.mesh = g; player.body = body;
+  scene.add(g);
+
+  // Flèche au-dessus de Pipo qui indique la porte une fois ouverte
+  player.arrow = mesh(GEO.arrow, MAT.arrow);
+  player.arrow.visible = false;
+  scene.add(player.arrow);
+}
+
+function placePlayerAtStart() {
+  var C = CONFIG.CELL;
+  player.x = L.start.x * C; player.z = L.start.y * C;
+  player.dirX = 0; player.dirZ = 1;
+  player.mesh.position.set(player.x, 0, player.z);
+  player.mesh.rotation.y = 0;
+}
+
+function updatePlayer(dt) {
+  var inp = getInput();
+  var mag = Math.sqrt(inp.x * inp.x + inp.z * inp.z);
+  if (mag > 0.01) { player.dirX = inp.x / mag; player.dirZ = inp.z / mag; }
+
+  var vx = inp.x * CONFIG.PLAYER_SPEED, vz = inp.z * CONFIG.PLAYER_SPEED;
+  if (G.dashT > 0) {                   // dash : pousse dans la direction du regard
+    G.dashT -= dt;
+    vx = player.dirX * CONFIG.PLAYER_SPEED * CONFIG.DASH_MULT;
+    vz = player.dirZ * CONFIG.PLAYER_SPEED * CONFIG.DASH_MULT;
+    mag = 1;
+  }
+  if (G.dashCd > 0) G.dashCd -= dt;
+
+  // Déplacement par sous-pas pour ne jamais traverser un mur (même en dash)
+  var dx = vx * dt, dz = vz * dt;
+  var steps = Math.max(1, Math.ceil(Math.sqrt(dx * dx + dz * dz) / 0.2));
+  for (var i = 0; i < steps; i++) {
+    player.x += dx / steps; player.z += dz / steps;
+    collideWalls(player, CONFIG.PLAYER_RADIUS);
+  }
+
+  var m = player.mesh;
+  m.position.set(player.x, 0, player.z);
+  if (mag > 0.01) m.rotation.y = lerpAngle(m.rotation.y, Math.atan2(player.dirX, player.dirZ), 1 - Math.exp(-14 * dt));
+
+  // Petite animation de marche (rebond + écrasement)
+  if (mag > 0.05) player.walk += dt * 13 * mag; else player.walk *= 0.85;
+  var b = Math.abs(Math.sin(player.walk));
+  player.body.position.y = b * 0.14;
+  player.body.scale.set(1 + (1 - b) * 0.05 * (mag > 0.05 ? 1 : 0), 1 - (1 - b) * 0.05 * (mag > 0.05 ? 1 : 0), 1);
+
+  // Clignote pendant l'invulnérabilité
+  m.visible = G.invuln > 0 ? (Math.floor(G.invuln * 12) % 2 === 0) : true;
+}
+
+function tryDash() {
+  if (G.state !== 'playing' || G.dashCd > 0) return;
+  G.dashT = CONFIG.DASH_TIME; G.dashCd = CONFIG.DASH_COOLDOWN;
+  Sound.dash();
+}
+
+function playerCell() {
+  return { x: Math.round(player.x / CONFIG.CELL), y: Math.round(player.z / CONFIG.CELL) };
+}
+
+/* =================================================================
+ * 8. ENEMIES — 3 gardiens, déplacement case par case + A*
+ *   Grumble (rouge, cube)   : poursuit le joueur dès qu'il est proche
+ *   Zigzag  (violet, sphère): vise la case DEVANT le joueur (interception)
+ *   Sneaky  (jaune, cône)   : plus lent, se téléporte (niveau 4+)
+ * ================================================================= */
+var ENEMY_TYPES = [
+  { type: 'grumble', speedMul: 1.0 },
+  { type: 'zigzag', speedMul: 1.05 },
+  { type: 'sneaky', speedMul: 0.8 }
+];
+var enemies = [];
+
+function createEnemyMesh(type) {
+  var g = new THREE.Group(), body = new THREE.Group(), b;
+  if (type === 'grumble') {
+    b = mesh(GEO.enemyBox, MAT.grumble, true); b.position.y = 0.45; body.add(b);
+    addEyes(body, 0.62, 0.43, 0.18, 1.1);
+  } else if (type === 'zigzag') {
+    b = mesh(GEO.enemySph, MAT.zigzag, true); b.position.y = 0.52; body.add(b);
+    addEyes(body, 0.66, 0.4, 0.17, 1.05);
+  } else {
+    b = mesh(GEO.enemyCone, MAT.sneaky, true); b.position.y = 0.575; body.add(b);
+    addEyes(body, 0.55, 0.26, 0.12, 0.85);
+  }
+  g.add(body);
+  g.userData.body = body;
+  scene.add(g);
+  return g;
+}
+
+function createEnemies() {
+  for (var i = 0; i < ENEMY_TYPES.length; i++) {
+    enemies.push({
+      type: ENEMY_TYPES[i].type, speedMul: ENEMY_TYPES[i].speedMul,
+      mesh: createEnemyMesh(ENEMY_TYPES[i].type), mat: MAT[ENEMY_TYPES[i].type],
+      cx: 0, cy: 0, tx: 0, ty: 0, t: 0, moving: false, path: [], replan: 0,
+      goal: null, goalTimer: 0, spawn: null, alert: false, tpTimer: 0, pop: 1, phase: i * 2.1
+    });
+  }
+}
+
+function resetEnemy(e, cell) {
+  e.cx = e.tx = cell[0]; e.cy = e.ty = cell[1];
+  e.t = 0; e.moving = false; e.path = []; e.replan = 0; e.goal = null; e.alert = false;
+  e.mesh.position.set(e.cx * CONFIG.CELL, 0, e.cy * CONFIG.CELL);
+}
+
+function placeEnemies() {
+  for (var i = 0; i < enemies.length; i++) {
+    var e = enemies[i];
+    e.spawn = L.spawns[i % L.spawns.length];
+    e.tpTimer = CONFIG.TELEPORT_EVERY;
+    resetEnemy(e, e.spawn);
+    e.mesh.rotation.y = Math.PI;
+  }
+}
+
+/* Décide où l'ennemi doit aller et calcule le chemin A* */
+function planEnemy(e) {
+  var g = L.grid, P = L.P, pc = playerCell();
+  var toPlayer = astar(g, e.cx, e.cy, pc.x, pc.y);
+  var d = toPlayer ? toPlayer.length : 999;
+  e.alert = false;
+
+  if (G.invuln <= 0 && toPlayer) {
+    if (e.type === 'grumble' && d <= P.detect) {
+      e.path = toPlayer; e.alert = true;
+    } else if (e.type === 'zigzag' && d <= P.detect * 1.3) {
+      e.alert = true;
+      if (d <= 3) e.path = toPlayer;
+      else {
+        // Cherche une case 4 cases devant le joueur (dans son sens de marche)
+        var sx = Math.abs(player.dirX) > Math.abs(player.dirZ) ? (player.dirX > 0 ? 1 : -1) : 0;
+        var sy = sx === 0 ? (player.dirZ > 0 ? 1 : -1) : 0;
+        var ax = pc.x, ay = pc.y;
+        for (var k = 0; k < 4 && isOpen(g, ax + sx, ay + sy); k++) { ax += sx; ay += sy; }
+        var p = (ax === pc.x && ay === pc.y) ? null : astar(g, e.cx, e.cy, ax, ay);
+        e.path = (p && p.length) ? p : toPlayer;
+      }
+    } else if (e.type === 'sneaky' && d <= P.detect) {
+      e.path = toPlayer; e.alert = true;
+    }
+  }
+
+  if (!e.alert) {
+    // Patrouille : va vers une case au hasard, en change si atteinte ou trop long
+    if (!e.goal || (e.cx === e.goal[0] && e.cy === e.goal[1]) || e.goalTimer <= 0) {
+      e.goal = L.open[Math.floor(Math.random() * L.open.length)];
+      e.goalTimer = 10;
+    }
+    e.path = astar(g, e.cx, e.cy, e.goal[0], e.goal[1]) || [];
+  }
+}
+
+/* Sneaky : disparaît et réapparaît à 5–9 cases (par chemin) du joueur */
+function teleportEnemy(e) {
+  var pc = playerCell(), d = bfs(L.grid, pc.x, pc.y), cands = [];
+  for (var i = 0; i < L.open.length; i++) {
+    var c = L.open[i], v = d[c[1]][c[0]];
+    if (v >= 5 && v <= 9) cands.push(c);
+  }
+  if (!cands.length) return;
+  resetEnemy(e, cands[Math.floor(Math.random() * cands.length)]);
+  e.pop = 0; Sound.poof();
+}
+
+function updateEnemy(e, dt) {
+  var P = L.P, C = CONFIG.CELL;
+  e.replan -= dt; e.goalTimer -= dt;
+
+  if (e.type === 'sneaky' && P.teleport) {
+    e.tpTimer -= dt;
+    if (e.tpTimer <= 0 && !e.moving) { e.tpTimer = CONFIG.TELEPORT_EVERY; teleportEnemy(e); }
+  }
+
+  // Avance de "remaining" cases ce frame, de centre de case en centre de case
+  var remaining = P.enemySpeed * e.speedMul * dt, guard = 0;
+  while (remaining > 0 && guard++ < 4) {
+    if (!e.moving) {
+      if (e.replan <= 0 || !e.path.length) { planEnemy(e); e.replan = CONFIG.REPLAN_TIME; }
+      if (!e.path.length) break;
+      var nx = e.path.shift();
+      e.tx = nx[0]; e.ty = nx[1]; e.moving = true; e.t = 0;
+    }
+    var step = Math.min(remaining, 1 - e.t);
+    e.t += step; remaining -= step;
+    if (e.t >= 0.9999) { e.cx = e.tx; e.cy = e.ty; e.moving = false; e.t = 0; }
+  }
+
+  var px = e.cx + (e.tx - e.cx) * e.t, py = e.cy + (e.ty - e.cy) * e.t;
+  e.mesh.position.x = px * C; e.mesh.position.z = py * C;
+  if (e.moving) e.mesh.rotation.y = lerpAngle(e.mesh.rotation.y, Math.atan2(e.tx - e.cx, e.ty - e.cy), 1 - Math.exp(-10 * dt));
+  // Les ennemis "s'allument" quand ils te repèrent
+  e.mat.emissiveIntensity += ((e.alert ? 0.45 : 0) - e.mat.emissiveIntensity) * Math.min(1, dt * 6);
+}
+
+/* =================================================================
+ * 9. PHYSICS — collisions cercle / murs, ramassage, contacts
+ * ================================================================= */
+function collideWalls(o, r) {
+  var C = CONFIG.CELL, h = C / 2, g = L.grid;
+  var cx = Math.round(o.x / C), cy = Math.round(o.z / C);
+  for (var pass = 0; pass < 2; pass++) {
+    for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+      var wx = cx + dx, wy = cy + dy;
+      if (isOpen(g, wx, wy)) continue;          // hors grille = mur
+      var minX = wx * C - h, maxX = wx * C + h, minZ = wy * C - h, maxZ = wy * C + h;
+      var nx = clamp(o.x, minX, maxX), nz = clamp(o.z, minZ, maxZ);
+      var ddx = o.x - nx, ddz = o.z - nz, d2 = ddx * ddx + ddz * ddz;
+      if (d2 >= r * r) continue;
+      if (d2 > 1e-8) {
+        var d = Math.sqrt(d2), push = (r - d) / d;
+        o.x += ddx * push; o.z += ddz * push;
+      } else {
+        // centre dans le mur : on sort par le côté le plus proche
+        var pl = o.x - minX, pr = maxX - o.x, pt = o.z - minZ, pb = maxZ - o.z, mn = Math.min(pl, pr, pt, pb);
+        if (mn === pl) o.x = minX - r; else if (mn === pr) o.x = maxX + r; else if (mn === pt) o.z = minZ - r; else o.z = maxZ + r;
+      }
+    }
+  }
+}
+
+function checkPickups() {
+  for (var i = 0; i < carrots.length; i++) {
+    var c = carrots[i];
+    if (c.taken || !c.active) continue;
+    var dx = c.mesh.position.x - player.x, dz = c.mesh.position.z - player.z;
+    if (dx * dx + dz * dz < CONFIG.PICK_DIST * CONFIG.PICK_DIST) {
+      c.taken = true; c.anim = 0.001;
+      G.score += CONFIG.SCORE_CARROT; G.carrotsLeft--;
+      Sound.pickup();
+      if (G.carrotsLeft <= 0) unlockDoor();
+    }
+  }
+}
+
+function checkEnemyHits() {
+  if (G.invuln > 0) return;
+  for (var i = 0; i < enemies.length; i++) {
+    var p = enemies[i].mesh.position, dx = p.x - player.x, dz = p.z - player.z;
+    if (dx * dx + dz * dz < CONFIG.HIT_DIST * CONFIG.HIT_DIST) { playerHit(); return; }
+  }
+}
+
+function checkDoor() {
+  if (!G.doorOpen) return;
+  var dx = door.position.x - player.x, dz = door.position.z - player.z;
+  if (dx * dx + dz * dz < CONFIG.DOOR_DIST * CONFIG.DOOR_DIST) levelComplete();
+}
+
+/* ---- Objets du niveau réutilisés (pool de carottes + porte) ---- */
+var carrots = [], door = null;
+
+function createCarrotPool(n) {
+  for (var i = 0; i < n; i++) {
+    var g = new THREE.Group();
+    // La carotte est penchée pour être reconnaissable vue de dessus
+    var tilt = new THREE.Group(); tilt.rotation.z = 0.7;
+    var body = mesh(GEO.carrot, MAT.carrot, true);
+    var leaf = mesh(GEO.leaf, MAT.leaf); leaf.position.y = 0.48;
+    var leaf2 = mesh(GEO.leaf, MAT.leaf); leaf2.position.set(0.08, 0.44, 0); leaf2.rotation.z = -0.5;
+    tilt.add(body); tilt.add(leaf); tilt.add(leaf2); g.add(tilt);
+    g.visible = false; scene.add(g);
+    carrots.push({ mesh: g, active: false, taken: false, anim: 0, phase: i * 0.7 });
+  }
+}
+
+function createDoor() {
+  door = new THREE.Group();
+  var p1 = mesh(GEO.doorPost, MAT.doorFrame, true); p1.position.set(-0.85, 1.05, 0);
+  var p2 = mesh(GEO.doorPost, MAT.doorFrame, true); p2.position.set(0.85, 1.05, 0);
+  var top = mesh(GEO.doorTop, MAT.doorFrame, true); top.position.set(0, 2.15, 0);
+  door.userData.panel = mesh(GEO.doorPanel, MAT.doorLocked); door.userData.panel.position.y = 0.95;
+  door.userData.ring = mesh(GEO.ring, MAT.doorOpen); door.userData.ring.position.y = 1.0; door.userData.ring.visible = false;
+  door.add(p1); door.add(p2); door.add(top); door.add(door.userData.panel); door.add(door.userData.ring);
+  scene.add(door);
+}
+
+function placeLevelObjects() {
+  var C = CONFIG.CELL, i;
+  for (i = 0; i < carrots.length; i++) {
+    var c = carrots[i];
+    c.active = i < L.carrots.length; c.taken = false; c.anim = 0;
+    c.mesh.visible = c.active; c.mesh.scale.setScalar(1);
+    if (c.active) c.mesh.position.set(L.carrots[i][0] * C, 0.6, L.carrots[i][1] * C);
+  }
+  door.position.set(L.door.x * C, 0, L.door.y * C);
+  // Oriente la porte en travers du couloir
+  var horiz = isOpen(L.grid, L.door.x - 1, L.door.y) || isOpen(L.grid, L.door.x + 1, L.door.y);
+  door.rotation.y = horiz ? Math.PI / 2 : 0;
+  setDoorOpen(false);
+}
+
+function setDoorOpen(open) {
+  door.userData.panel.material = open ? MAT.doorOpen : MAT.doorLocked;
+  door.userData.panel.visible = !open;
+  door.userData.ring.visible = open;
+  player.arrow.visible = open;
+}
+
+/* =================================================================
+ * 10. INPUT — joystick tactile, souris (test PC), clavier
+ * ================================================================= */
+var keys = { up: false, down: false, left: false, right: false };
+var joy = { active: false, id: null, bx: 0, by: 0, vx: 0, vy: 0 };
+var joyEl, knobEl;
+
+function getInput() {
+  var x = 0, z = 0;
+  if (keys.left) x -= 1; if (keys.right) x += 1;
+  if (keys.up) z -= 1; if (keys.down) z += 1;
+  if (joy.active) { x += joy.vx; z += joy.vy; }
+  var l = Math.sqrt(x * x + z * z);
+  if (l > 1) { x /= l; z /= l; }
+  return { x: x, z: z };   // écran haut = -z monde, écran droite = +x monde
+}
+
+function setKnob(dx, dy) {
+  var t = 'translate(' + dx + 'px,' + dy + 'px)';
+  knobEl.style.webkitTransform = t; knobEl.style.transform = t;
+}
+function placeJoyIdle() {
+  var w = window.innerWidth, h = window.innerHeight;
+  joyEl.style.left = Math.round(Math.max(90, w * 0.14)) + 'px';
+  joyEl.style.top = Math.round(h - Math.max(110, h * 0.18)) + 'px';
+}
+function startJoy(id, x, y) {
+  joy.active = true; joy.id = id; joy.bx = x; joy.by = y; joy.vx = joy.vy = 0;
+  joyEl.style.left = x + 'px'; joyEl.style.top = y + 'px';
+  joyEl.className = ''; setKnob(0, 0);
+}
+function moveJoy(x, y) {
+  var R = CONFIG.JOY_RADIUS, dx = x - joy.bx, dy = y - joy.by, l = Math.sqrt(dx * dx + dy * dy);
+  if (l > R) { dx = dx / l * R; dy = dy / l * R; l = R; }
+  setKnob(dx, dy);
+  var n = l / R;
+  if (n < CONFIG.JOY_DEADZONE) { joy.vx = joy.vy = 0; return; }
+  var k = (n - CONFIG.JOY_DEADZONE) / (1 - CONFIG.JOY_DEADZONE) / n;
+  joy.vx = dx / R * k; joy.vy = dy / R * k;
+}
+function endJoy() {
+  joy.active = false; joy.id = null; joy.vx = joy.vy = 0;
+  joyEl.className = 'idle'; setKnob(0, 0); placeJoyIdle();
+}
+function isUiTarget(el) { return !!(el && el.closest && el.closest('button, .screen')); }
+
+function initInput() {
+  joyEl = $('joy'); knobEl = $('joyKnob');
+  placeJoyIdle();
+
+  // --- Tactile ---
+  document.addEventListener('touchstart', function (e) {
+    Sound.init();
+    if (G.state !== 'playing') return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      if (isUiTarget(t.target)) continue;
+      if (!joy.active && t.clientX < window.innerWidth * 0.6) { startJoy(t.identifier, t.clientX, t.clientY); e.preventDefault(); }
+    }
+  }, { passive: false });
+  document.addEventListener('touchmove', function (e) {
+    if (joy.active) {
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i];
+        if (t.identifier === joy.id) moveJoy(t.clientX, t.clientY);
+      }
+    }
+    if (!(e.target && e.target.closest && e.target.closest('.screen'))) e.preventDefault(); // pas de scroll
+  }, { passive: false });
+  function touchEnd(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) if (e.changedTouches[i].identifier === joy.id) endJoy();
+  }
+  document.addEventListener('touchend', touchEnd, { passive: false });
+  document.addEventListener('touchcancel', touchEnd, { passive: false });
+
+  // --- Souris (pour tester sur PC : cliquer-glisser à gauche = joystick) ---
+  $('game').addEventListener('mousedown', function (e) {
+    Sound.init();
+    if (G.state === 'playing' && e.clientX < window.innerWidth * 0.6) startJoy('mouse', e.clientX, e.clientY);
+  });
+  window.addEventListener('mousemove', function (e) { if (joy.active && joy.id === 'mouse') moveJoy(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', function () { if (joy.id === 'mouse') endJoy(); });
+
+  // --- Bouton dash ---
+  var dashBtn = $('btnDash');
+  dashBtn.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); Sound.init(); tryDash(); }, { passive: false });
+  dashBtn.addEventListener('mousedown', function (e) { e.preventDefault(); tryDash(); });
+
+  // --- Clavier (e.code = touche physique → ZQSD sur AZERTY = WASD sur QWERTY) ---
+  function setKey(e, down) {
+    var c = e.code || '', k = (e.key || '').toLowerCase();
+    if (c === 'KeyW' || c === 'ArrowUp' || k === 'arrowup' || k === 'z' || k === 'w') keys.up = down;
+    else if (c === 'KeyS' || c === 'ArrowDown' || k === 'arrowdown' || k === 's') keys.down = down;
+    else if (c === 'KeyA' || c === 'ArrowLeft' || k === 'arrowleft' || k === 'q' || k === 'a') keys.left = down;
+    else if (c === 'KeyD' || c === 'ArrowRight' || k === 'arrowright' || k === 'd') keys.right = down;
+    else return false;
+    return true;
+  }
+  window.addEventListener('keydown', function (e) {
+    Sound.init();
+    if (setKey(e, true)) { e.preventDefault(); return; }
+    var c = e.code || '', k = (e.key || '').toLowerCase();
+    if (c === 'KeyE' || c === 'Space' || k === 'e' || k === ' ') { e.preventDefault(); tryDash(); }
+    else if (c === 'KeyP' || c === 'Escape' || k === 'p' || k === 'escape') togglePause();
+    else if ((c === 'Enter' || k === 'enter') && G.state === 'menu') startGame(1);
+  });
+  window.addEventListener('keyup', function (e) { setKey(e, false); });
+  window.addEventListener('blur', function () { keys.up = keys.down = keys.left = keys.right = false; });
+
+  // Anti-zoom / anti-menu contextuel (WebView)
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); });
+}
+
+/* =================================================================
+ * 11. UI — HUD, écrans, toasts
+ * ================================================================= */
+var hudCache = {};
+function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+function setClass(id, v) { if (hudCache['c' + id] !== v) { hudCache['c' + id] = v; $(id).className = v; } }
+
+function updateHUD() {
+  setText('hLevel', String(G.level));
+  setText('hCarrots', G.carrotsLeft > 0 ? (G.carrotsTotal - G.carrotsLeft) + '/' + G.carrotsTotal : 'Porte !');
+  setClass('pCarrots', G.carrotsLeft > 0 ? 'pill' : 'pill done');
+  var h = '', maxH = Math.max(CONFIG.START_LIVES, G.lives);
+  for (var i = 0; i < maxH; i++) h += i < G.lives ? '❤️' : '🖤';
+  setText('hLives', h);
+  setText('hScore', String(G.score));
+  var t = Math.max(0, Math.ceil(G.time)), m = Math.floor(t / 60), s = t % 60;
+  setText('hTime', m + ':' + (s < 10 ? '0' : '') + s);
+  setClass('pTimer', t <= 10 ? 'pill danger' : 'pill');
+  var cd = G.dashCd > 0 ? Math.round(G.dashCd / CONFIG.DASH_COOLDOWN * 100) : 0;
+  if (hudCache.cd !== cd) { hudCache.cd = cd; $('dashCd').style.height = cd + '%'; }
+}
+
+var toastTimer = null;
+function toast(msg, ms) {
+  var el = $('toast');
+  el.textContent = msg; el.className = 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.className = ''; }, ms || 2000);
+}
+function flash() {
+  var el = $('flash'); el.className = 'on';
+  setTimeout(function () { el.className = ''; }, 60);
+}
+
+function hideScreens() {
+  $('menu').className = 'screen hidden';
+  $('endScreen').className = 'screen hidden';
+  $('pauseScreen').className = 'screen hidden';
+}
+function showPlayUI(show) {
+  $('hud').className = show ? '' : 'hidden';
+  $('controls').className = show ? '' : 'hidden';
+  if (!show && joy.active) endJoy();
+}
+function updateMuteIcon() { $('btnMute').textContent = Save.data.muted ? '🔇' : '🔊'; }
+
+function showMenu() {
+  $('bestScore').textContent = Save.data.best;
+  var cont = $('btnContinue');
+  if (Save.data.maxLevel > 1) {
+    cont.className = 'btn btn-secondary';
+    cont.textContent = 'Continuer (niveau ' + Save.data.maxLevel + ')';
+  } else cont.className = 'btn btn-secondary hidden';
+  hideScreens(); $('menu').className = 'screen';
+}
+
+/* Écran de fin générique */
+function showEnd(o) {
+  $('endIcon').textContent = o.icon;
+  $('endTitle').textContent = o.title;
+  $('endText').textContent = o.text || '';
+  $('endStats').innerHTML = o.stats;
+  $('btnNext').className = o.next ? 'btn btn-primary' : 'btn btn-primary hidden';
+  $('btnRetry').className = o.retry ? 'btn btn-primary' : 'btn btn-primary hidden';
+  $('btnRetry').textContent = o.retryLabel || '↻ Rejouer';
+  hideScreens(); $('endScreen').className = 'screen';
+}
+
+function initUI() {
+  $('btnPlay').addEventListener('click', function () { Sound.init(); startGame(1); });
+  $('btnContinue').addEventListener('click', function () { Sound.init(); startGame(Save.data.maxLevel); });
+  $('btnNext').addEventListener('click', function () { startLevel(G.level + 1); });
+  $('btnRetry').addEventListener('click', function () {
+    if (G.state === 'victory') startGame(1);
+    else { G.lives = CONFIG.START_LIVES; G.score = G.levelStartScore; startLevel(G.level); }
+  });
+  $('btnMenu').addEventListener('click', goMenu);
+  $('btnPause').addEventListener('click', togglePause);
+  $('btnResume').addEventListener('click', togglePause);
+  $('btnRestart').addEventListener('click', function () {
+    G.lives = Math.max(G.lives, 1); G.score = G.levelStartScore; startLevel(G.level);
+  });
+  $('btnQuit').addEventListener('click', goMenu);
+  $('btnMute').addEventListener('click', function () {
+    Save.data.muted = !Save.data.muted; Save.save(); updateMuteIcon(); Sound.init();
+  });
+  updateMuteIcon();
+}
+
+function showError(msg) {
+  hideScreens(); showPlayUI(false);
+  $('errorText').textContent = msg;
+  $('errorScreen').className = 'screen';
+}
+
+/* =================================================================
+ * 12. GAME — états : menu, playing, paused, levelEnd, gameOver, victory
+ * ================================================================= */
+var L = null;   // données du niveau courant
+var G = {
+  state: 'menu', level: 1, lives: CONFIG.START_LIVES, score: 0, levelStartScore: 0,
+  time: 0, carrotsLeft: 0, carrotsTotal: 0, doorOpen: false,
+  invuln: 0, dashT: 0, dashCd: 0, shake: 0, lastTick: 0
+};
+
+function loadLevel(n) {
+  L = createLevelData(n);
+  buildLevelMeshes(L);
+  placeLevelObjects();
+  placeEnemies();
+  placePlayerAtStart();
+}
+
+function startGame(fromLevel) {
+  G.lives = CONFIG.START_LIVES; G.score = 0;
+  startLevel(fromLevel || 1);
+}
+
+function startLevel(n) {
+  G.level = n;
+  loadLevel(n);
+  G.levelStartScore = G.score;
+  G.time = L.P.time;
+  G.carrotsTotal = G.carrotsLeft = L.carrots.length;
+  G.doorOpen = false; G.invuln = 1.5; G.dashT = 0; G.dashCd = 0; G.shake = 0; G.lastTick = 0;
+  hudCache = {};
+  hideScreens(); showPlayUI(true); updateHUD();
+  G.state = 'playing';
+  snapCamera();
+  toast('Niveau ' + n + ' — ' + G.carrotsTotal + ' carottes 🥕', 2200);
+}
+
+function unlockDoor() {
+  G.doorOpen = true; setDoorOpen(true);
+  Sound.unlock();
+  toast('🚪 La porte est ouverte ! Suis la flèche', 2400);
+}
+
+function playerHit() {
+  G.lives--;
+  G.score = Math.max(0, G.score + CONFIG.SCORE_HIT);
+  G.shake = 0.45; flash(); Sound.hit();
+  if (window.navigator && navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
+  if (G.lives <= 0) { gameOver('Plus de vies !', 'Les gardiens ont eu Pipo…'); return; }
+  placePlayerAtStart();
+  G.invuln = CONFIG.INVULN_TIME; G.dashT = 0;
+  // Les ennemis trop proches du départ retournent à leur point d'apparition
+  for (var i = 0; i < enemies.length; i++) {
+    var e = enemies[i];
+    if (manhattan(e.cx, e.cy, L.start.x, L.start.y) < 6) resetEnemy(e, e.spawn);
+    e.path = []; e.goal = null;
+  }
+  toast('Aïe ! Plus que ' + G.lives + (G.lives > 1 ? ' vies' : ' vie'), 1600);
+}
+
+function levelComplete() {
+  var bonus = Math.ceil(G.time) * CONFIG.SCORE_TIME_BONUS;
+  G.score += bonus;
+  var extra = (G.level % CONFIG.EXTRA_LIFE_EVERY === 0 && G.lives < CONFIG.MAX_LIVES);
+  if (extra) G.lives++;
+  var last = G.level >= CONFIG.MAX_LEVEL;
+  if (G.score > Save.data.best) Save.data.best = G.score;
+  if (!last && G.level + 1 > Save.data.maxLevel) Save.data.maxLevel = G.level + 1;
+  Save.save();
+  Sound.win(); showPlayUI(false);
+  var stats = '🥕 Carottes : <b>' + G.carrotsTotal + '</b><br>⏱ Bonus temps : <b>+' + bonus + '</b><br>⭐ Score : <b>' + G.score + '</b>' +
+    (extra ? '<br>❤️ Vie bonus : <b>+1</b>' : '');
+  if (last) {
+    G.state = 'victory';
+    showEnd({ icon: '👑', title: 'Victoire totale !', text: 'Pipo a traversé les ' + CONFIG.MAX_LEVEL + ' labyrinthes !',
+      stats: stats + '<br>🏆 Meilleur : <b>' + Save.data.best + '</b>', retry: true, retryLabel: '↻ Rejouer depuis le début' });
+  } else {
+    G.state = 'levelEnd';
+    showEnd({ icon: '🎉', title: 'Niveau ' + G.level + ' terminé !', text: 'Prochain : un labyrinthe plus grand et des gardiens plus rapides.', stats: stats, next: true });
+  }
+}
+
+function gameOver(title, text) {
+  G.state = 'gameOver';
+  if (G.score > Save.data.best) Save.data.best = G.score;
+  Save.save();
+  Sound.lose(); showPlayUI(false);
+  showEnd({ icon: '💥', title: title, text: text,
+    stats: '📍 Niveau : <b>' + G.level + '</b><br>⭐ Score : <b>' + G.score + '</b><br>🏆 Meilleur : <b>' + Save.data.best + '</b>',
+    retry: true, retryLabel: '↻ Rejouer le niveau' });
+}
+
+function togglePause() {
+  if (G.state === 'playing') {
+    G.state = 'paused'; showPlayUI(false);
+    $('pauseScreen').className = 'screen';
+  } else if (G.state === 'paused') {
+    hideScreens(); showPlayUI(true); G.state = 'playing';
+  }
+}
+
+function goMenu() {
+  G.state = 'menu';
+  showPlayUI(false);
+  loadLevel(1);   // le niveau 1 sert de décor animé au menu
+  showMenu();
+}
+
+/* =================================================================
+ * 13. GAMELOOP — mise à jour + rendu (requestAnimationFrame)
+ * ================================================================= */
+var camTarget = new THREE.Vector3(), camPos = new THREE.Vector3(), tmpV = new THREE.Vector3();
+var menuAngle = 0, elapsed = 0, lastT = 0;
+var perf = { t: 0, frames: 0, stage: 0 };
+
+function updatePlaying(dt) {
+  G.time -= dt;
+  if (G.time <= 0) { G.time = 0; updateHUD(); gameOver('Temps écoulé !', 'Le labyrinthe a gardé ses secrets…'); return; }
+  if (G.time <= 10 && Math.ceil(G.time) !== G.lastTick) { G.lastTick = Math.ceil(G.time); Sound.tick(); }
+  if (G.invuln > 0) G.invuln -= dt;
+
+  updatePlayer(dt);
+  for (var i = 0; i < enemies.length; i++) updateEnemy(enemies[i], dt);
+  checkPickups();
+  checkEnemyHits();
+  if (G.state !== 'playing') return;
+  checkDoor();
+  if (G.state === 'playing') updateHUD();
+}
+
+/* Animations décoratives (toujours actives, même dans le menu) */
+function animateScene(dt) {
+  var i;
+  for (i = 0; i < carrots.length; i++) {
+    var c = carrots[i];
+    if (!c.active || !c.mesh.visible) continue;
+    if (c.taken) {                                  // petite animation de ramassage
+      c.anim += dt;
+      c.mesh.position.y += dt * 5;
+      c.mesh.scale.setScalar(Math.max(0.01, 1.3 - c.anim * 4));
+      if (c.anim > 0.3) c.mesh.visible = false;
+    } else {
+      c.mesh.rotation.y += dt * 2;
+      c.mesh.position.y = 0.65 + Math.sin(elapsed * 3 + c.phase) * 0.12;
+    }
+  }
+  for (i = 0; i < enemies.length; i++) {
+    var e = enemies[i], body = e.mesh.userData.body;
+    var sp = e.alert ? 14 : 7;
+    body.position.y = Math.abs(Math.sin(elapsed * sp + e.phase)) * (e.type === 'zigzag' ? 0.25 : 0.1);
+    if (e.pop < 1) e.pop = Math.min(1, e.pop + dt * 3);
+    e.mesh.scale.setScalar(e.pop);
+  }
+  if (G.doorOpen) {
+    door.userData.ring.rotation.y += dt * 2.5;
+    door.userData.ring.rotation.x = Math.sin(elapsed * 2) * 0.3;
+    var a = player.arrow;
+    a.position.set(player.x, 2.3 + Math.sin(elapsed * 5) * 0.12, player.z);
+    a.rotation.y = Math.atan2(door.position.x - player.x, door.position.z - player.z);
+  }
+}
+
+function snapCamera() {
+  camTarget.set(player.x, 0.5, player.z);
+  camPos.set(player.x, CONFIG.CAM_HEIGHT * camK, player.z + CONFIG.CAM_BACK * camK);
+}
+
+function updateCamera(dt) {
+  if (G.state === 'menu') {
+    // Menu : la caméra tourne lentement autour du labyrinthe
+    menuAngle += dt * 0.12;
+    var c = (L.size - 1) * CONFIG.CELL / 2, r = L.size * CONFIG.CELL * 0.75 * camK;
+    camera.position.set(c + Math.sin(menuAngle) * r, L.size * CONFIG.CELL * 0.8 * camK, c + Math.cos(menuAngle) * r);
+    camera.lookAt(c, 0, c);
+    sun.position.set(c + 8, 20, c + 6); sun.target.position.set(c, 0, c);
+    return;
+  }
+  var k = 1 - Math.exp(-6 * dt);
+  tmpV.set(player.x, 0.5, player.z);
+  camTarget.lerp(tmpV, k);
+  tmpV.set(player.x, CONFIG.CAM_HEIGHT * camK, player.z + CONFIG.CAM_BACK * camK);
+  camPos.lerp(tmpV, k);
+  camera.position.copy(camPos);
+  if (G.shake > 0) {
+    G.shake -= dt;
+    camera.position.x += (Math.random() - 0.5) * G.shake;
+    camera.position.y += (Math.random() - 0.5) * G.shake;
+  }
+  camera.lookAt(camTarget);
+  // La lumière (et donc la zone d'ombres) suit le joueur
+  sun.position.set(camTarget.x + 8, 20, camTarget.z + 6);
+  sun.target.position.copy(camTarget);
+}
+
+/* Qualité adaptative : si < 40 FPS, on baisse la résolution puis on coupe les ombres */
+function perfMonitor(realDt) {
+  if (G.state !== 'playing' || perf.stage >= 2) return;
+  perf.t += realDt; perf.frames++;
+  if (perf.t < 4) return;
+  var fps = perf.frames / perf.t;
+  perf.t = 0; perf.frames = 0;
+  if (fps >= 40) return;
+  if (perf.stage === 0 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); resize(); perf.stage = 1; }
+  else { sun.castShadow = false; perf.stage = 2; }
+}
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (!lastT) lastT = t;
+  var realDt = Math.max(0, (t - lastT) / 1000); lastT = t;
+  var dt = Math.min(0.05, realDt);                   // évite les sauts après un lag
+  elapsed += dt;
+  if (G.state === 'playing') updatePlaying(dt);
+  animateScene(dt);
+  updateCamera(dt);
+  renderer.render(scene, camera);
+  perfMonitor(realDt);
+}
+
+function resize() {
+  var w = window.innerWidth || document.documentElement.clientWidth;
+  var h = window.innerHeight || document.documentElement.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  // En portrait, l'écran est étroit : on recule la caméra pour voir autant de couloirs
+  var a = w / h;
+  camK = a < 1 ? 1 + (1 - a) * 0.9 : 1;
+  scene.fog.near = 20 * camK; scene.fog.far = 48 * camK;
+  if (!joy.active) placeJoyIdle();
+}
+
+/* =================================================================
+ * 14. BOOT
+ * ================================================================= */
+function boot() {
+  if (!window.THREE) {
+    showError('Three.js n\'a pas pu être chargé. Vérifie ta connexion, ou place "three.min.js" à côté de ce fichier.');
+    return;
+  }
+  try { initRender(); }
+  catch (e) {
+    showError('WebGL n\'est pas disponible sur cet appareil (ou est désactivé). Mets à jour "Android System WebView" / Chrome puis réessaie.');
+    return;
+  }
+  Save.load();
+  createPlayer();
+  createEnemies();
+  createCarrotPool(24);
+  createDoor();
+  initInput();
+  initUI();
+  resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 250); });
+  // Pause automatique quand l'app passe en arrière-plan
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && G.state === 'playing') togglePause();
+  });
+  goMenu();
+  requestAnimationFrame(frame);
+
+  // Accès debug depuis la console (facultatif)
+  window.CarrotQuest = { G: G, CONFIG: CONFIG, getLevel: function () { return L; }, enemies: enemies, player: player, carrots: carrots, startLevel: startLevel };
+}
+
+boot();
+})();
+</script>
+</body>
+</html>
