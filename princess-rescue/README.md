@@ -11,7 +11,20 @@ Tu incarnes **Aren** :
 2. Ouvre la **porte du donjon** (bouton ACTION) : le cadenas tombe, la porte pivote.
 3. Libère Lysa de sa **cage** : cinématique de victoire.
 
-3 vies, chrono, 5 chapitres de plus en plus grands (9×9 → 17×17). +1 vie tous les 2 chapitres.
+3 vies, chrono, 5 chapitres de plus en plus grands (9×9 → 17×17, cases de 4 m). +1 vie tous les 2 chapitres.
+Couloirs larges, plusieurs chemins (boucles) et des **salles ouvertes** à partir du chapitre 2 pour esquiver.
+
+### ⚡ Le bâton de lumière (arme)
+- Bouton **TIR** (maintenir = tir continu) / clic ou **F** au clavier.
+- **Visée assistée** : l'Ombre visible la plus proche devant toi est verrouillée (anneau rouge) et les tirs partent vers elle.
+- 6 charges, rechargement automatique (~1 par seconde) — le nombre est affiché sur le bouton.
+- Chaque tir **sonne** l'Ombre ~1 s (flash blanc). Rôdeur = 3 tirs, Chauve-ombre = 2, Gardien = 5.
+- Une Ombre dissipée rapporte +150 et **revient** 25 s plus tard à son point de départ.
+
+### 🔺 Voir le danger arriver
+- **Flèches** au bord de l'écran pour les Ombres proches **hors du champ de vision** (rouge qui clignote = elle te poursuit).
+- Mini-carte : points rouges = Ombres (rouge vif = poursuite).
+- Caméra à l'épaule placée plus haut (au-dessus des murs) pour voir les couloirs voisins.
 
 **Les Ombres** (IA avec pathfinding A*) : patrouille → poursuite quand elles te repèrent (yeux qui brillent, grognement) → retour à leur point de départ si elles te perdent.
 - **Rôdeur** (cornes) : chasse au sol.
@@ -27,15 +40,24 @@ Tu incarnes **Aren** :
 | Regarder | Glisser le doigt à droite | Souris (clic = capture du pointeur) |
 | Sauter | SAUT | Espace |
 | Action | ACTION (brille quand c'est possible) | E |
+| Tirer | ⚡ TIR (maintenir) | Clic gauche (souris capturée) ou F |
 | Sprint | SPRINT (maintenir) — jauge d'endurance | Maj |
 | Vue FPS / épaule | 👁 | V |
 | Pause | ⏸ | P ou Échap |
+
+## Caméra plus facile
+- **Sensibilité** réglable dans le menu et dans la pause : Lente / Normale / Rapide.
+- Mouvement **lissé** (fini les à-coups), axe vertical moins sensible, inclinaison limitée en FPS.
+- Champ de vision plus large en FPS (78°, +12° en portrait).
+- Conseil mobile : la vue **à l'épaule** (par défaut) est la plus confortable ; la vue FPS (👁) est plus immersive.
+- Réglages fins dans `CONFIG` : `LOOK_TOUCH`, `LOOK_SMOOTH`, `FOV`, `FOV_FPS`, `CAM_DIST`, `CAM_PITCH`.
+- Arme : `ENERGY_MAX`, `ENERGY_REGEN`, `FIRE_CD`, `AIM_ASSIST`, `ENEMY_HP`, `RESPAWN_TIME`.
 
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | **Version pour l'APK** : Three.js + effets intégrés, fonctionne **sans internet** (~820 Ko). |
+| `index.html` | **Version pour l'APK** : Three.js + effets intégrés, fonctionne **sans internet** (~840 Ko). |
 | `index-cdn.html` | Fichier **source** à modifier : charge Three.js via CDN (cdnjs/unpkg), sinon depuis `libs/`. |
 | `libs/` | Three.js r128 + modules de post-processing (licence MIT) pour le mode local. |
 | `build.py` | Régénère `index.html` : `python3 build.py` |

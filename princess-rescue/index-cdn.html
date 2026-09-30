@@ -71,14 +71,28 @@ button { font-family: inherit; -webkit-appearance: none; appearance: none; curso
 .act .i { display: block; font-size: 24px; line-height: 1; }
 .act .l { display: block; font-size: 10px; margin-top: 2px; }
 .act:active, .act.on { transform: scale(.92); }
-#btnJump { width: 88px; height: 88px; right: 22px; bottom: 30px; right: calc(22px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom));
+#btnFire { width: 98px; height: 98px; right: 18px; bottom: 26px; right: calc(18px + env(safe-area-inset-right)); bottom: calc(26px + env(safe-area-inset-bottom));
+  background: radial-gradient(circle at 50% 35%, rgba(170,240,255,.95), rgba(40,150,230,.92) 60%, rgba(20,70,170,.92)); }
+#btnFire .i { font-size: 30px; }
+#btnJump { width: 72px; height: 72px; right: 128px; bottom: 26px; right: calc(128px + env(safe-area-inset-right)); bottom: calc(26px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(255,190,90,.92), rgba(230,110,50,.92)); }
-#btnAction { width: 68px; height: 68px; right: 124px; bottom: 44px; right: calc(124px + env(safe-area-inset-right)); bottom: calc(44px + env(safe-area-inset-bottom));
+#btnAction { width: 62px; height: 62px; right: 133px; bottom: 112px; right: calc(133px + env(safe-area-inset-right)); bottom: calc(112px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(120,150,255,.9), rgba(70,80,200,.9)); }
 #btnAction.ready { animation: glow 0.8s infinite alternate; }
 @keyframes glow { from { box-shadow: 0 0 0 rgba(255,220,120,0); } to { box-shadow: 0 0 26px rgba(255,220,120,.95); } }
-#btnSprint { width: 68px; height: 68px; right: 40px; bottom: 132px; right: calc(40px + env(safe-area-inset-right)); bottom: calc(132px + env(safe-area-inset-bottom));
+#btnSprint { width: 62px; height: 62px; right: 36px; bottom: 136px; right: calc(36px + env(safe-area-inset-right)); bottom: calc(136px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(90,220,160,.9), rgba(30,150,110,.9)); }
+
+/* Réticule (vue FPS) + flèches de danger */
+#crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 8; pointer-events: none;
+  border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,.6); }
+#crosshair:after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #fff; }
+#crosshair.lock { border-color: #ff5a4a; transform: scale(.8); }
+.darrow { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 8; pointer-events: none; display: none;
+  border-left: 16px solid transparent; border-right: 16px solid transparent; border-bottom: 30px solid rgba(255,150,40,.85);
+  filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); }
+.darrow.chase { border-bottom-color: rgba(255,40,40,.95); animation: dpulse .35s infinite alternate; }
+@keyframes dpulse { from { opacity: 1; } to { opacity: .45; } }
 
 /* ---------- Écrans ---------- */
 .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; display: flex; padding: 16px; overflow-y: auto; touch-action: pan-y;
@@ -140,7 +154,10 @@ body.cine .lb { height: 11vh; }
   #minimap { width: 92px; height: 92px; }
   .chip { font-size: 13px; padding: 5px 9px; }
   #btnJump { width: 76px; height: 76px; }
-  #btnSprint { bottom: 112px; }
+  #btnFire { width: 84px; height: 84px; }
+  #btnJump { width: 64px; height: 64px; right: 112px; }
+  #btnAction { width: 56px; height: 56px; right: 116px; bottom: 96px; }
+  #btnSprint { width: 56px; height: 56px; bottom: 118px; right: 30px; }
 }
 @media (max-width: 380px) { .chip { font-size: 13px; padding: 5px 9px; margin-right: 4px; } #minimap { width: 96px; height: 96px; } }
 </style>
@@ -174,11 +191,14 @@ body.cine .lb { height: 11vh; }
 <!-- Contrôles tactiles -->
 <div id="controls" class="hidden">
   <div id="joy" class="idle"><div id="joyKnob"></div></div>
+  <button id="btnFire" class="act"><span class="i">⚡</span><span class="l">TIR <b id="ammo">6</b></span></button>
   <button id="btnJump" class="act"><span class="i">⤒</span><span class="l">SAUT</span></button>
   <button id="btnAction" class="act"><span class="i">✋</span><span class="l">ACTION</span></button>
   <button id="btnSprint" class="act"><span class="i">»</span><span class="l">SPRINT</span></button>
 </div>
 
+<div id="crosshair" class="hidden"></div>
+<div id="danger"><div class="darrow"></div><div class="darrow"></div><div class="darrow"></div><div class="darrow"></div></div>
 <div id="flash"></div>
 <div id="toast" class="glass"></div>
 <div id="lbTop" class="lb"></div><div id="lbBot" class="lb"></div>
@@ -209,8 +229,14 @@ body.cine .lb { height: 11vh; }
       <button class="qbtn" data-q="medium">Medium</button>
       <button class="qbtn" data-q="high">High</button>
     </div>
+    <div class="qlabel">Sensibilité caméra</div>
+    <div class="qrow">
+      <button class="qbtn sbtn" data-s="0.6">Lente</button>
+      <button class="qbtn sbtn" data-s="1">Normale</button>
+      <button class="qbtn sbtn" data-s="1.5">Rapide</button>
+    </div>
     <div class="stats">🏆 Meilleur score : <b id="bestScore">0</b></div>
-    <div class="help">📱 Joystick à gauche · glisse à droite pour regarder · SAUT / ACTION / SPRINT<br>⌨️ ZQSD/WASD · souris = caméra · Espace = saut · E = action · Maj = sprint · V = vue FPS · P = pause</div>
+    <div class="help">📱 Joystick à gauche · glisse à droite pour regarder · ⚡ TIR (maintenir) / SAUT / ACTION / SPRINT<br>⌨️ ZQSD/WASD · souris = caméra · clic ou F = tir · Espace = saut · E = action · Maj = sprint · V = vue FPS · P = pause</div>
   </div>
 </div>
 
@@ -233,6 +259,12 @@ body.cine .lb { height: 11vh; }
     <div class="title" style="font-size:34px">Pause</div>
     <button id="btnResume" class="btn btn-gold">▶ Reprendre</button>
     <button id="btnRestart" class="btn btn-violet">↻ Recommencer le chapitre</button>
+    <div class="qlabel">Sensibilité caméra</div>
+    <div class="qrow">
+      <button class="qbtn sbtn" data-s="0.6">Lente</button>
+      <button class="qbtn sbtn" data-s="1">Normale</button>
+      <button class="qbtn sbtn" data-s="1.5">Rapide</button>
+    </div>
     <button id="btnQuit" class="btn btn-ghost">Menu</button>
   </div>
 </div>
@@ -296,14 +328,14 @@ if (window.THREE && !THREE.BokehPass) {
  * 1. CONFIG — modifie ces valeurs pour régler le jeu
  * ===================================================================== */
 var CONFIG = {
-  CELL: 3,                // taille d'une case du labyrinthe (mètres)
+  CELL: 4,                // taille d'une case du labyrinthe (mètres) — couloirs larges pour esquiver
   WALL_H: 3.2,            // hauteur des murs
   MAX_LEVEL: 5,           // nombre de chapitres
 
   PLAYER_RADIUS: 0.4,
   PLAYER_HEIGHT: 1.75,
-  WALK_SPEED: 4.4,        // m/s
-  SPRINT_SPEED: 7.4,      // m/s
+  WALK_SPEED: 5.0,        // m/s
+  SPRINT_SPEED: 8.2,      // m/s
   GRAVITY: 22,
   JUMP_SPEED: 8.4,        // => saut d'environ 1,6 m
   STAMINA_MAX: 100,
@@ -316,21 +348,34 @@ var CONFIG = {
   INVULN_TIME: 2.5,
   KEYS_NEEDED: 3,
 
-  ENEMY_BASE_SPEED: 1.1,  // cases / seconde au chapitre 1
+  ENEMY_BASE_SPEED: 0.95, // cases / seconde au chapitre 1 (1 case = 4 m)
   ENEMY_SPEED_STEP: 0.08, // +8 % par chapitre
-  ENEMY_SPEED_MAX: 1.65,
+  ENEMY_SPEED_MAX: 1.4,
   REPLAN: 0.35,           // recalcul A* max toutes les 0,35 s
   LOSE_TIME: 2.5,         // temps avant qu'un ennemi abandonne la poursuite
 
-  CAM_DIST: 4.6,          // distance caméra 3e personne
-  CAM_PITCH: 0.52,        // inclinaison par défaut (radians) : la caméra passe au-dessus des murs
+  CAM_DIST: 5.6,          // distance caméra 3e personne
+  CAM_PITCH: 0.62,        // inclinaison par défaut (radians) : la caméra passe au-dessus des murs
+  FOV: 62, FOV_FPS: 78,   // champ de vision (degrés), +12 en portrait
   EYE_HEIGHT: 1.62,       // hauteur des yeux en vue FPS
-  LOOK_TOUCH: 0.0055,
-  LOOK_MOUSE: 0.0025,
+  LOOK_TOUCH: 0.0042,     // sensibilité tactile (multipliée par le réglage Lente/Normale/Rapide)
+  LOOK_MOUSE: 0.0022,
+  LOOK_SMOOTH: 22,        // lissage de la caméra (plus grand = plus direct)
   JOY_RADIUS: 55,
   JOY_DEADZONE: 0.12,
 
-  SCORE_KEY: 250, SCORE_RESCUE: 1000, SCORE_TIME: 10, SCORE_HIT: -100,
+  // Arme : bâton de lumière
+  ENERGY_MAX: 6,          // tirs disponibles
+  ENERGY_REGEN: 1.2,      // tirs rechargés par seconde
+  FIRE_CD: 0.26,          // délai entre deux tirs (s)
+  BOLT_SPEED: 26,         // m/s
+  BOLT_RANGE: 28,         // portée (m)
+  AIM_ASSIST: 0.52,       // demi-angle de la visée assistée (radians ≈ 30°)
+  ENEMY_HP: { rodeur: 3, chauve: 2, gardien: 5 },
+  STUN_TIME: 0.9,         // ennemi sonné après un tir (s)
+  RESPAWN_TIME: 25,       // une Ombre vaincue revient après N s
+
+  SCORE_KEY: 250, SCORE_RESCUE: 1000, SCORE_TIME: 10, SCORE_HIT: -100, SCORE_KILL: 150,
   SAVE_KEY: 'princessrescue3d_v1',
   SUN_DIR: [-0.55, 0.30, -0.78],  // soleil couchant (bas sur l'horizon)
   ENV_GAIN: 0.28                   // intensité des reflets du ciel sur les matériaux
@@ -349,14 +394,15 @@ function levelParams(n) {
   var size = 7 + 2 * n;                                       // 9x9 → 17x17
   return {
     n: n, size: size,
-    time: Math.round(70 + size * size * 0.55),                // secondes
+    time: Math.round(90 + size * size * 0.75),                // secondes
     enemySpeed: Math.min(CONFIG.ENEMY_BASE_SPEED * (1 + CONFIG.ENEMY_SPEED_STEP * (n - 1)), CONFIG.ENEMY_SPEED_MAX),
     detect: Math.min(5 + n, 10),                              // portée de détection (cases, par chemin)
     extraRodeur: n >= 3,                                      // 4e ennemi à partir du chapitre 3
     crates: Math.floor(size * 0.8),
     torches: size + 2,
     crystals: n >= 3 ? 3 : 2,
-    loops: 0.07,
+    loops: 0.085,                                             // boucles : plusieurs chemins pour fuir
+    rooms: Math.floor(n / 2),                                 // salles ouvertes 3x3 (chapitre 2+)
     seed: 4242 + n * 9173
   };
 }
@@ -398,7 +444,7 @@ function isTouch() { return ('ontouchstart' in window) || (navigator.maxTouchPoi
  * 3. SAUVEGARDE (localStorage) & SONS (Web Audio procédural)
  * ===================================================================== */
 var Save = {
-  data: { best: 0, maxLevel: 1, muted: false, quality: 'auto' },
+  data: { best: 0, maxLevel: 1, muted: false, quality: 'auto', sens: 1 },
   load: function () {
     try {
       var s = window.localStorage && localStorage.getItem(CONFIG.SAVE_KEY);
@@ -468,6 +514,10 @@ var Sound = {
   hit: function () { this.tone(220, 0.45, 'sawtooth', 0.1, 50); this.noise(0.3, 0.25, 'lowpass', 900, 200); },
   sprint: function () { this.noise(0.25, 0.05, 'bandpass', 600, 1200, 0, 1); },
   tick: function () { this.tone(1400, 0.05, 'square', 0.025); },
+  shoot: function () { this.tone(1200, 0.18, 'sawtooth', 0.05, 300); this.noise(0.12, 0.08, 'highpass', 2500); },
+  empty: function () { this.tone(300, 0.06, 'square', 0.04); },
+  zap: function () { this.tone(500, 0.15, 'square', 0.06, 180); this.noise(0.1, 0.12, 'bandpass', 1200, 0, 0, 3); },
+  kill: function () { this.tone(400, 0.6, 'sawtooth', 0.06, 60); this.noise(0.6, 0.15, 'lowpass', 1500, 100); },
   win: function () { var n = [523, 659, 784, 1046, 1318, 1568]; for (var i = 0; i < n.length; i++) this.tone(n[i], 0.6, 'triangle', 0.07, 0, i * 0.13); },
   lose: function () { var n = [440, 392, 330, 262]; for (var i = 0; i < n.length; i++) this.tone(n[i], 0.5, 'triangle', 0.08, 0, i * 0.22); }
 };
@@ -646,7 +696,7 @@ function setRepeat(mat, rx, ry) {
  * 5. GÉNÉRATION DU NIVEAU (grille : 1 = mur, 0 = sol)
  *    Case (x, y) → monde (x * CELL, y * CELL)
  * ===================================================================== */
-function generateMaze(size, rng, loops) {
+function generateMaze(size, rng, loops, rooms) {
   var g = [], x, y;
   for (y = 0; y < size; y++) { var row = []; for (x = 0; x < size; x++) row.push(1); g.push(row); }
   var steps = [[2, 0], [-2, 0], [0, 2], [0, -2]], stack = [[1, 1]]; g[1][1] = 0;
@@ -667,6 +717,12 @@ function generateMaze(size, rng, loops) {
     if (g[y][x] !== 1) continue;
     if ((x % 2 === 0 && y % 2 === 1 && g[y][x - 1] === 0 && g[y][x + 1] === 0) ||
         (x % 2 === 1 && y % 2 === 0 && g[y - 1][x] === 0 && g[y + 1][x] === 0)) { g[y][x] = 0; extra--; }
+  }
+  // Salles ouvertes 3x3 (espace pour manœuvrer et esquiver)
+  for (var r = 0; r < (rooms || 0); r++) {
+    var x0 = 1 + 2 * Math.floor(rng() * ((size - 3) / 2)), y0 = 1 + 2 * Math.floor(rng() * ((size - 3) / 2));
+    if (x0 + 2 > size - 2 || y0 + 2 > size - 2 || (x0 <= 3 && y0 <= 3)) continue;
+    for (y = y0; y <= y0 + 2; y++) for (x = x0; x <= x0 + 2; x++) g[y][x] = 0;
   }
   return g;
 }
@@ -691,7 +747,7 @@ function same(a, b) { return a[0] === b[0] && a[1] === b[1]; }
 
 function createLevelData(n) {
   var P = levelParams(n), rng = mulberry32(P.seed), S = P.size;
-  var g = generateMaze(S, rng, P.loops), start = [1, 1], x, y, k, i;
+  var g = generateMaze(S, rng, P.loops, P.rooms), start = [1, 1], x, y, k, i;
   var dist = bfs(g, 1, 1);
 
   // Donjon de la princesse = cul-de-sac le plus éloigné du départ
@@ -1020,6 +1076,8 @@ function createGeometries() {
   GEO.finial = new THREE.SphereGeometry(0.1, 12, 8);
   GEO.bracket = new THREE.BoxGeometry(0.06, 0.34, 0.06); GEO.bracket.translate(0, -0.08, 0);
   GEO.torchCup = new THREE.CylinderGeometry(0.09, 0.05, 0.14, 8);
+  GEO.staff = new THREE.CylinderGeometry(0.022, 0.03, 1.35, 8);
+  GEO.orb = new THREE.IcosahedronGeometry(0.075, 1);
   GEO.crystal = new THREE.OctahedronGeometry(0.3, 0);
   GEO.rock = new THREE.DodecahedronGeometry(0.4, 0);
   // Touffe d'herbe : 2 plans croisés
@@ -1080,6 +1138,14 @@ function createMaterials() {
   MAT.goldHalo = spr(soft, 0xffc040, 0.55);
   MAT.eyeHalo = spr(soft, 0xff2a1a, 0.7);
   MAT.cyanHalo = spr(soft, 0x40d0ff, 0.6);
+  MAT.boltHalo = spr(soft, 0x7fe0ff, 0.8);
+  MAT.bolt = spr(soft, 0xbff4ff, 1);
+  MAT.staffWood = std({ color: 0x5a3a22, roughness: 0.6 });
+  MAT.orb = new THREE.MeshBasicMaterial({ color: 0x9ff0ff });
+  // Marqueur de cible (anneau rouge) de la visée assistée
+  MAT.lockRing = new THREE.SpriteMaterial({ map: spriteTex(64, function (ctx, s) { ctx.strokeStyle = '#ff4a3a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); for (var i = 0; i < 4; i++) { var a = i * Math.PI / 2; ctx.moveTo(s / 2 + Math.cos(a) * (s / 2 - 14), s / 2 + Math.sin(a) * (s / 2 - 14)); ctx.lineTo(s / 2 + Math.cos(a) * (s / 2 - 2), s / 2 + Math.sin(a) * (s / 2 - 2)); } ctx.stroke(); }),
+    transparent: true, depthTest: false, depthWrite: false, fog: false });
   MAT.crownHalo = spr(soft, 0xffd070, 0.45);
   TEX.soft = soft;
   // Herbe (texture alpha de brins dessinée au canvas)
@@ -1159,6 +1225,11 @@ function makeHero() {
   var shL = new THREE.Group(), shR = new THREE.Group();
   shL.position.set(-0.27, 1.46, 0); shR.position.set(0.27, 1.46, 0); body.add(shL); body.add(shR);
   [shL, shR].forEach(function (s) { add(s, GEO.arm, MAT.tunic, 0, -0.29, 0, true); add(s, GEO.hand, MAT.skin, 0, -0.62, 0); });
+  // Bâton de lumière dans la main droite
+  var staff = new THREE.Group(); staff.position.set(0, -0.62, 0.06); staff.rotation.x = 0.25; shR.add(staff);
+  add(staff, GEO.staff, MAT.staffWood, 0, 0.1, 0, true);
+  add(staff, GEO.orb, MAT.orb, 0, 0.78, 0);
+  var sh = new THREE.Sprite(MAT.boltHalo); sh.position.y = 0.78; sh.scale.set(0.45, 0.45, 1); staff.add(sh);
   add(body, GEO.neck, MAT.skin, 0, 1.58, 0);
   var head = add(body, GEO.head, MAT.skin, 0, 1.72, 0, true); head.scale.y = 1.1;
   add(body, GEO.hair, MAT.hair, 0, 1.745, -0.012, true);
@@ -1192,27 +1263,28 @@ function makePrincess() {
 /* Les Ombres : rodeur (cornes), chauve (ailes, vole), gardien (grand, lent) */
 function makeEnemy(kind) {
   var root = new THREE.Group(), body = new THREE.Group(); root.add(body);
-  var eyeMat = kind === 'gardien' ? MAT.eyeOrange : MAT.eyeRed, e = { kind: kind, root: root, body: body };
+  var eyeMat = kind === 'gardien' ? MAT.eyeOrange : MAT.eyeRed, sm = MAT.shadow.clone();   // matériau propre (flash quand touché)
+  var e = { kind: kind, root: root, body: body, mat: sm, baseEm: sm.emissive.clone(), flash: 0 };
   if (kind === 'chauve') {
-    add(body, GEO.batBody, MAT.shadow, 0, 0, 0, true).scale.set(1, 1.1, 0.9);
-    add(body, GEO.eHead, MAT.shadow, 0, 0.34, 0.06, true).scale.setScalar(0.8);
-    var e1 = add(body, GEO.horn, MAT.shadow, -0.1, 0.55, 0.02); e1.scale.setScalar(0.5); e1.rotation.z = 0.3;
-    var e2 = add(body, GEO.horn, MAT.shadow, 0.1, 0.55, 0.02); e2.scale.setScalar(0.5); e2.rotation.z = -0.3;
+    add(body, GEO.batBody, sm, 0, 0, 0, true).scale.set(1, 1.1, 0.9);
+    add(body, GEO.eHead, sm, 0, 0.34, 0.06, true).scale.setScalar(0.8);
+    var e1 = add(body, GEO.horn, sm, -0.1, 0.55, 0.02); e1.scale.setScalar(0.5); e1.rotation.z = 0.3;
+    var e2 = add(body, GEO.horn, sm, 0.1, 0.55, 0.02); e2.scale.setScalar(0.5); e2.rotation.z = -0.3;
     add(body, GEO.eEye, eyeMat, -0.07, 0.37, 0.24); add(body, GEO.eEye, eyeMat, 0.07, 0.37, 0.24);
     e.wl = new THREE.Group(); e.wl.position.set(-0.22, 0.05, 0); body.add(e.wl); add(e.wl, GEO.wing, MAT.wing, 0, 0, 0, true);
     e.wr = new THREE.Group(); e.wr.position.set(0.22, 0.05, 0); e.wr.scale.x = -1; body.add(e.wr); add(e.wr, GEO.wing, MAT.wing, 0, 0, 0, true);
     e.halo = new THREE.Sprite(MAT.eyeHalo); e.halo.position.set(0, 0.37, 0.28); e.halo.scale.set(0.45, 0.25, 1); body.add(e.halo);
   } else {
-    add(body, GEO.eBody, MAT.shadow, 0, 0.98, 0, true).scale.set(1, 1.15, 0.85);
-    add(body, GEO.eHead, MAT.shadow, 0, 1.58, 0.12, true);
-    var h1 = add(body, GEO.horn, MAT.shadow, -0.15, 1.8, 0.08, true); h1.rotation.z = 0.5; h1.rotation.x = -0.2;
-    var h2 = add(body, GEO.horn, MAT.shadow, 0.15, 1.8, 0.08, true); h2.rotation.z = -0.5; h2.rotation.x = -0.2;
+    add(body, GEO.eBody, sm, 0, 0.98, 0, true).scale.set(1, 1.15, 0.85);
+    add(body, GEO.eHead, sm, 0, 1.58, 0.12, true);
+    var h1 = add(body, GEO.horn, sm, -0.15, 1.8, 0.08, true); h1.rotation.z = 0.5; h1.rotation.x = -0.2;
+    var h2 = add(body, GEO.horn, sm, 0.15, 1.8, 0.08, true); h2.rotation.z = -0.5; h2.rotation.x = -0.2;
     add(body, GEO.eEye, eyeMat, -0.09, 1.6, 0.34); add(body, GEO.eEye, eyeMat, 0.09, 1.6, 0.34);
-    e.aL = new THREE.Group(); e.aL.position.set(-0.42, 1.28, 0); body.add(e.aL); add(e.aL, GEO.eArm, MAT.shadow, 0, 0, 0, true);
-    e.aR = new THREE.Group(); e.aR.position.set(0.42, 1.28, 0); body.add(e.aR); add(e.aR, GEO.eArm, MAT.shadow, 0, 0, 0, true);
-    var c1 = add(e.aL, GEO.claw, MAT.shadow, 0, -0.9, 0.03); c1.rotation.x = Math.PI;
-    var c2 = add(e.aR, GEO.claw, MAT.shadow, 0, -0.9, 0.03); c2.rotation.x = Math.PI;
-    add(body, GEO.eLeg, MAT.shadow, -0.18, 0.28, 0, true); add(body, GEO.eLeg, MAT.shadow, 0.18, 0.28, 0, true);
+    e.aL = new THREE.Group(); e.aL.position.set(-0.42, 1.28, 0); body.add(e.aL); add(e.aL, GEO.eArm, sm, 0, 0, 0, true);
+    e.aR = new THREE.Group(); e.aR.position.set(0.42, 1.28, 0); body.add(e.aR); add(e.aR, GEO.eArm, sm, 0, 0, 0, true);
+    var c1 = add(e.aL, GEO.claw, sm, 0, -0.9, 0.03); c1.rotation.x = Math.PI;
+    var c2 = add(e.aR, GEO.claw, sm, 0, -0.9, 0.03); c2.rotation.x = Math.PI;
+    add(body, GEO.eLeg, sm, -0.18, 0.28, 0, true); add(body, GEO.eLeg, sm, 0.18, 0.28, 0, true);
     e.halo = new THREE.Sprite(MAT.eyeHalo); e.halo.position.set(0, 1.6, 0.38); e.halo.scale.set(0.55, 0.3, 1); body.add(e.halo);
     if (kind === 'gardien') body.scale.setScalar(1.3);
   }
@@ -1395,8 +1467,9 @@ function placeDoorAndCage() {
   u.pivot.rotation.y = 0; u.lock.visible = true; u.lock.position.y = 1.35; u.lock.rotation.z = 0; u.shackle.position.y = 0.12;
   u.keyhole.material = MAT.lockRed;
   u.lamps.forEach(function (l) { l.material = MAT.lampOff; });
-  L.doorBox = Math.abs(dx) ? { minX: door.position.x - 0.15, maxX: door.position.x + 0.15, minZ: door.position.z - 1.5, maxZ: door.position.z + 1.5, bottom: 0, top: 9 }
-                           : { minX: door.position.x - 1.5, maxX: door.position.x + 1.5, minZ: door.position.z - 0.15, maxZ: door.position.z + 0.15, bottom: 0, top: 9 };
+  var hw = CONFIG.CELL / 2;
+  L.doorBox = Math.abs(dx) ? { minX: door.position.x - 0.15, maxX: door.position.x + 0.15, minZ: door.position.z - hw, maxZ: door.position.z + hw, bottom: 0, top: 9 }
+                           : { minX: door.position.x - hw, maxX: door.position.x + hw, minZ: door.position.z - 0.15, maxZ: door.position.z + 0.15, bottom: 0, top: 9 };
   cage.position.copy(gp); cage.userData.bars.position.y = 0;
   princess.root.position.copy(gp); princess.root.position.y = 0.16;
   princess.root.rotation.y = Math.atan2(-dx, -dz);
@@ -1504,6 +1577,7 @@ function updatePlayer(dt) {
 
   // Orientation + animation du héros
   if (G.fps) P.facing = Math.atan2(fx, fz);
+  else if (G.aimHold > 0) G.aimHold -= dt;                       // garde l'orientation du tir un instant
   else if (mag > 0.05) P.facing = lerpAngle(P.facing, Math.atan2(mx, mz), 1 - Math.exp(-12 * dt));
   hero.root.position.set(P.x, P.y, P.z); hero.root.rotation.y = P.facing;
   animateHero(dt, mag * (P.sprinting ? 1.6 : 1));
@@ -1528,6 +1602,7 @@ function animateHero(dt, amt) {
     h.shL.rotation.x = -2.4; h.shR.rotation.x = -2.2; h.shL.rotation.z = 0.3; h.shR.rotation.z = -0.3;
     h.body.position.y = 0;
   }
+  if (G.recoil > 0 || G.aimHold > 0) { h.shR.rotation.x = -1.45; h.shR.rotation.z = -0.1; }   // bras tendu pour tirer
   h.cape.rotation.x = 0.12 + Math.min(1.2, amt) * 0.45 + Math.sin(elapsed * 7) * 0.05 + (P.onGround ? 0 : 0.4);
 }
 
@@ -1537,13 +1612,14 @@ function animateHero(dt, amt) {
 function createEnemies() {
   [['rodeur', 1.0], ['chauve', 1.15], ['gardien', 0.8], ['rodeur', 1.05]].forEach(function (t, i) {
     var e = makeEnemy(t[0]);
-    e.speedMul = t[1]; e.phase = i * 1.7; e.active = false;
+    e.speedMul = t[1]; e.phase = i * 1.7; e.active = false; e.maxHp = CONFIG.ENEMY_HP[t[0]]; e.pop = 1;
     enemies.push(e);
   });
 }
 function resetEnemy(e, cell) {
   e.cx = e.tx = cell[0]; e.cy = e.ty = cell[1]; e.t = 0; e.moving = false; e.path = []; e.replan = 0;
   e.state = 'patrol'; e.goal = null; e.lose = 0;
+  e.hp = e.maxHp; e.dead = false; e.stun = 0; e.flash = 0; e.root.visible = e.active !== false;
   e.root.position.set(cell[0] * CONFIG.CELL, e.kind === 'chauve' ? 1.9 : 0, cell[1] * CONFIG.CELL);
 }
 function placeEnemies(n) {
@@ -1586,6 +1662,16 @@ function planEnemy(e) {
 }
 
 function updateEnemy(e, dt) {
+  // Flash blanc quand touché
+  if (e.flash > 0) { e.flash -= dt; e.mat.emissive.copy(e.baseEm).lerp(tmpC.setRGB(1, 1, 1), Math.max(0, e.flash) / 0.18); }
+  else e.mat.emissive.copy(e.baseEm);
+  if (e.dead) {                                                   // Ombre vaincue : réapparition plus tard
+    e.respawn -= dt;
+    var pc = playerCell();
+    if (e.respawn <= 0 && manhattan(pc[0], pc[1], e.spawn[0], e.spawn[1]) > 4) { resetEnemy(e, e.spawn); e.pop = 0; }
+    return;
+  }
+  if (e.stun > 0) { e.stun -= dt; return; }                        // sonné : ne bouge plus
   e.replan -= dt;
   var mul = e.state === 'chase' ? 1 : 0.7;                        // patrouille plus lente
   var remaining = L.P.enemySpeed * e.speedMul * mul * dt, guard = 0;
@@ -1604,7 +1690,9 @@ function updateEnemy(e, dt) {
   if (e.moving) e.root.rotation.y = lerpAngle(e.root.rotation.y, Math.atan2(e.tx - e.cx, e.ty - e.cy), 1 - Math.exp(-8 * dt));
 }
 function animateEnemy(e) {
-  if (!e.active) return;
+  if (!e.active || e.dead) return;
+  if (e.pop < 1) { e.pop = Math.min(1, e.pop + 0.03); e.root.scale.setScalar(e.pop); }
+  if (e.stun > 0) { e.body.rotation.z = Math.sin(elapsed * 40) * 0.12; } else e.body.rotation.z = 0;
   var t = elapsed + e.phase, chase = e.state === 'chase';
   if (e.kind === 'chauve') {
     e.root.position.y = 1.9 + Math.sin(t * 2.2) * 0.2;
@@ -1687,6 +1775,163 @@ function burstSparks(pos) {
   sparks.material.opacity = 1; sparks.visible = true;
 }
 
+
+/* =====================================================================
+ * 12b. ARME — bâton de lumière : projectiles, visée assistée, dégâts
+ * ===================================================================== */
+var bolts = [], lockSprite, viewmodel, tmpC = new THREE.Color(), aimT = 0;
+var _o = new THREE.Vector3(), _f = new THREE.Vector3(), _d = new THREE.Vector3(), _c = new THREE.Vector3();
+
+function createWeapon() {
+  for (var i = 0; i < 14; i++) {
+    var s = new THREE.Sprite(MAT.bolt); s.scale.set(0.55, 0.55, 1); s.visible = false; scene.add(s);
+    bolts.push({ s: s, vel: new THREE.Vector3(), life: 0, on: false, impact: 0 });
+  }
+  lockSprite = new THREE.Sprite(MAT.lockRing); lockSprite.scale.set(1.1, 1.1, 1); lockSprite.visible = false; lockSprite.renderOrder = 10; scene.add(lockSprite);
+  // Bâton visible en vue FPS (attaché à la caméra)
+  viewmodel = new THREE.Group(); viewmodel.position.set(0.26, -0.3, -0.55); viewmodel.rotation.set(0.35, 0, 0.2); viewmodel.scale.setScalar(0.42);
+  add(viewmodel, GEO.staff, MAT.staffWood, 0, -0.1, 0);
+  add(viewmodel, GEO.orb, MAT.orb, 0, 0.58, 0);
+  var h = new THREE.Sprite(MAT.boltHalo); h.position.y = 0.58; h.scale.set(0.35, 0.35, 1); viewmodel.add(h);
+  add(viewmodel, GEO.hand, MAT.skin, 0, -0.05, 0.02).scale.set(1.2, 1.6, 1.2);
+  viewmodel.visible = false;
+  camera.add(viewmodel); scene.add(camera);
+}
+function enemyCenter(e, out) {
+  return out.set(e.root.position.x, e.kind === 'chauve' ? e.root.position.y : (e.kind === 'gardien' ? 1.35 : 1.05), e.root.position.z);
+}
+/* Ligne de vue (aucun mur ni porte fermée entre a et b) */
+function losClear(a, b) {
+  var C = CONFIG.CELL, d = a.distanceTo(b), n = Math.ceil(d / 0.3);
+  for (var i = 1; i < n; i++) {
+    var t = i / n, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, z = a.z + (b.z - a.z) * t;
+    if (y < CONFIG.WALL_H && !isOpen(L.grid, Math.round(x / C), Math.round(z / C))) return false;
+    var db = L.doorBox;
+    if (!G.doorOpen && db && x > db.minX && x < db.maxX && z > db.minZ && z < db.maxZ) return false;
+  }
+  return true;
+}
+/* Origine et direction du tir selon la vue */
+function aimBasis() {
+  if (G.fps) { camera.getWorldDirection(_f); _o.copy(camera.position).addScaledVector(_f, 0.5); _o.y -= 0.15; }
+  else { _f.set(-Math.sin(G.yaw), 0, -Math.cos(G.yaw)); _o.set(P.x, P.y + 1.35, P.z).addScaledVector(_f, 0.45); }
+}
+/* Visée assistée : l'Ombre visible la plus proche dans un cône devant le joueur */
+function findTarget() {
+  aimBasis();
+  var best = null, bestS = 1e9, cosMax = Math.cos(CONFIG.AIM_ASSIST);
+  for (var i = 0; i < enemies.length; i++) {
+    var e = enemies[i]; if (!e.active || e.dead) continue;
+    enemyCenter(e, _c); _d.copy(_c).sub(_o);
+    var dist = _d.length(); if (dist > CONFIG.BOLT_RANGE) continue;
+    _d.divideScalar(dist);
+    var dot = G.fps ? _d.dot(_f) : (_d.x * _f.x + _d.z * _f.z) / Math.max(0.001, Math.sqrt(_d.x * _d.x + _d.z * _d.z));
+    if (dot < cosMax || !losClear(_o, _c)) continue;
+    var sc = dist * (2.2 - dot);
+    if (sc < bestS) { bestS = sc; best = e; }
+  }
+  return best;
+}
+function updateTargeting(dt) {
+  aimT -= dt;
+  if (aimT <= 0) { aimT = 0.1; G.target = findTarget(); }
+  if (G.target && !G.target.dead) { enemyCenter(G.target, lockSprite.position); lockSprite.visible = true; lockSprite.material.rotation += dt * 2; }
+  else lockSprite.visible = false;
+  var ch = $('crosshair'); if (G.fps) ch.className = G.target ? 'lock' : '';
+}
+function fire() {
+  if (G.state !== 'playing' || G.fireCd > 0) return;
+  if (G.energy < 1) { if (!input.fireHeld || G.fireCd <= -0.4) Sound.empty(); G.fireCd = 0.25; return; }
+  G.energy -= 1; G.fireCd = CONFIG.FIRE_CD; G.recoil = 1;
+  aimBasis();
+  var t = findTarget(); G.target = t;
+  var dir = new THREE.Vector3();
+  if (t) dir.copy(enemyCenter(t, _c)).sub(_o).normalize(); else dir.copy(_f).normalize();
+  if (!G.fps) { P.facing = Math.atan2(dir.x, dir.z); G.aimHold = 0.45; _o.set(P.x, P.y + 1.35, P.z).addScaledVector(dir, 0.45); }
+  var b = null;
+  for (var i = 0; i < bolts.length; i++) if (!bolts[i].on) { b = bolts[i]; break; }
+  if (!b) b = bolts[0];
+  b.on = true; b.impact = 0; b.life = CONFIG.BOLT_RANGE / CONFIG.BOLT_SPEED;
+  b.s.position.copy(_o); b.vel.copy(dir).multiplyScalar(CONFIG.BOLT_SPEED);
+  b.s.scale.set(0.55, 0.55, 1); b.s.material = MAT.bolt; b.s.visible = true;
+  Sound.shoot();
+}
+function boltBlocked(p) {
+  if (p.y < 0.05) return true;
+  if (p.y < CONFIG.WALL_H && !isOpen(L.grid, Math.round(p.x / CONFIG.CELL), Math.round(p.z / CONFIG.CELL))) return true;
+  var db = L.doorBox;
+  if (!G.doorOpen && db && p.x > db.minX && p.x < db.maxX && p.z > db.minZ && p.z < db.maxZ) return true;
+  for (var i = 0; i < crateBoxes.length; i++) { var c = crateBoxes[i]; if (p.x > c.minX && p.x < c.maxX && p.z > c.minZ && p.z < c.maxZ && p.y > c.bottom && p.y < c.top) return true; }
+  return false;
+}
+function updateBolts(dt) {
+  for (var i = 0; i < bolts.length; i++) {
+    var b = bolts[i]; if (!b.on) continue;
+    if (b.impact > 0) {                                            // petit éclat à l'impact
+      b.impact -= dt; var k = 1 - b.impact / 0.2; b.s.scale.set(0.6 + k * 1.2, 0.6 + k * 1.2, 1);
+      if (b.impact <= 0) { b.on = false; b.s.visible = false; }
+      continue;
+    }
+    if (G.state !== 'playing') { b.on = false; b.s.visible = false; continue; }
+    b.life -= dt;
+    var steps = Math.max(1, Math.ceil(b.vel.length() * dt / 0.3)), hit = false;
+    for (var s = 0; s < steps && !hit; s++) {
+      b.s.position.addScaledVector(b.vel, dt / steps);
+      for (var j = 0; j < enemies.length; j++) {
+        var e = enemies[j]; if (!e.active || e.dead) continue;
+        var r = e.kind === 'gardien' ? 1.0 : 0.75;
+        if (enemyCenter(e, _c).distanceToSquared(b.s.position) < r * r) { damageEnemy(e, b.vel); hit = true; break; }
+      }
+      if (!hit && boltBlocked(b.s.position)) hit = true;
+    }
+    if (hit) { b.impact = 0.2; b.s.material = MAT.boltHalo; }
+    else if (b.life <= 0) { b.on = false; b.s.visible = false; }
+  }
+}
+function damageEnemy(e, vel) {
+  e.hp--; e.flash = 0.18; e.stun = CONFIG.STUN_TIME;
+  if (e.state !== 'chase') { e.state = 'chase'; e.lose = 0; }
+  Sound.zap();
+  if (e.hp <= 0) {
+    e.dead = true; e.root.visible = false; e.respawn = CONFIG.RESPAWN_TIME; e.moving = false; e.path = [];
+    G.score += CONFIG.SCORE_KILL; G.kills++;
+    sparks.material.color.setHex(0x9a5cff).convertSRGBToLinear(); burstSparks(enemyCenter(e, _c)); sparks.material.opacity = 0.9;
+    Sound.kill(); toast('💥 Ombre dissipée ! +' + CONFIG.SCORE_KILL, 1400);
+    if (G.target === e) G.target = null;
+  }
+}
+function updateViewmodel(dt) {
+  if (!viewmodel) return;
+  viewmodel.visible = G.fps && G.state === 'playing';
+  if (!viewmodel.visible) return;
+  var bob = P.onGround ? Math.sin(hero.walk) * 0.015 : 0;
+  viewmodel.position.set(0.26 + bob, -0.3 + Math.abs(bob) - G.recoil * 0.02, -0.55 + G.recoil * 0.06);
+  viewmodel.rotation.x = 0.35 + G.recoil * 0.25;
+}
+
+/* Flèches de danger : indiquent les Ombres proches hors du champ de vision */
+function updateDanger() {
+  var el = document.querySelectorAll('.darrow'), w = window.innerWidth, h = window.innerHeight, Rx = w * 0.4, Ry = h * 0.36;   // ellipse près des bords
+  var fx = -Math.sin(G.yaw), fz = -Math.cos(G.yaw), rx = Math.cos(G.yaw), rz = -Math.sin(G.yaw), list = [];
+  enemies.forEach(function (e) {
+    if (!e.active || e.dead) return;
+    var dx = e.root.position.x - P.x, dz = e.root.position.z - P.z, d = Math.sqrt(dx * dx + dz * dz);
+    if (d < 20 && (e.state === 'chase' || d < 10)) list.push({ e: e, d: d, a: Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz) });
+  });
+  list.sort(function (a, b) { return a.d - b.d; });
+  var half = (camera.fov * Math.PI / 180) * Math.max(1, camera.aspect) * 0.45;
+  for (var i = 0; i < el.length; i++) {
+    var it = list[i];
+    if (!it || Math.abs(it.a) < half) { el[i].style.display = 'none'; continue; }
+    var x = w / 2 + Math.sin(it.a) * Rx, y = h / 2 - Math.cos(it.a) * Ry;
+    el[i].style.display = 'block';
+    el[i].className = 'darrow' + (it.e.state === 'chase' ? ' chase' : '');
+    el[i].style.opacity = String(clamp(1.3 - it.d / 20, 0.4, 1));
+    var tr = 'translate(' + (x - 16) + 'px,' + (y - 15) + 'px) rotate(' + it.a + 'rad) scale(' + clamp(1.6 - it.d / 16, 0.8, 1.4) + ')';
+    el[i].style.webkitTransform = tr; el[i].style.transform = tr;
+  }
+}
+
 /* =====================================================================
  * 13. CAMÉRA — 3e personne (à l'épaule) ou FPS ; anti-traversée des murs
  * ===================================================================== */
@@ -1709,6 +1954,8 @@ function updateCamera(dt) {
   }
   if (G.state === 'cinematic') return;              // la cinématique gère sa caméra
   setDof(0);
+  var fov = (G.fps ? CONFIG.FOV_FPS : CONFIG.FOV) + (window.innerWidth < window.innerHeight ? 12 : 0);
+  if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
   if (G.fps) {
     var bob = P.onGround ? Math.sin(hero.walk * 2) * 0.03 : 0;
     camera.position.set(P.x, P.y + CONFIG.EYE_HEIGHT + bob, P.z);
@@ -1742,7 +1989,7 @@ function setDof(focus) {
 /* =====================================================================
  * 14. CONTRÔLES — joystick, glisser pour regarder, boutons, clavier, souris
  * ===================================================================== */
-var input = { f: false, b: false, l: false, r: false, sprintKey: false, sprintBtn: false, jumpQ: 0, action: false };
+var input = { f: false, b: false, l: false, r: false, sprintKey: false, sprintBtn: false, jumpQ: 0, action: false, fireHeld: false };
 var joy = { active: false, id: null, bx: 0, by: 0, vx: 0, vy: 0 }, look = { id: null, x: 0, y: 0 };
 var joyEl, knobEl;
 
@@ -1753,10 +2000,17 @@ function getMoveInput() {
   var l = Math.sqrt(x * x + z * z); if (l > 1) { x /= l; z /= l; }
   return { x: x, z: z };
 }
+/* Le regard est accumulé puis appliqué en douceur (lissage) ; l'axe vertical est moins sensible */
 function applyLook(dx, dy, sens) {
-  G.yaw -= dx * sens;
-  if (G.fps) G.fpsPitch = clamp(G.fpsPitch - dy * sens, -1.2, 1.2);
-  else G.camPitch = clamp(G.camPitch + dy * sens, -0.1, 1.15);
+  var k = sens * (Save.data.sens || 1);
+  G.lookX += dx * k; G.lookY += dy * k * 0.65;
+}
+function updateLook(dt) {
+  var f = Math.min(1, 1 - Math.exp(-CONFIG.LOOK_SMOOTH * dt)), ax = G.lookX * f, ay = G.lookY * f;
+  G.lookX -= ax; G.lookY -= ay;
+  G.yaw -= ax;
+  if (G.fps) G.fpsPitch = clamp(G.fpsPitch - ay, -1.0, 1.0);
+  else G.camPitch = clamp(G.camPitch + ay, 0.05, 1.2);
 }
 function setKnob(dx, dy) { var t = 'translate(' + dx + 'px,' + dy + 'px)'; knobEl.style.webkitTransform = t; knobEl.style.transform = t; }
 function placeJoyIdle() { joyEl.style.left = Math.round(Math.max(95, window.innerWidth * 0.13)) + 'px'; joyEl.style.top = Math.round(window.innerHeight - Math.max(110, window.innerHeight * 0.2)) + 'px'; }
@@ -1808,7 +2062,8 @@ function initInput() {
   cv.addEventListener('mousedown', function (e) {
     Sound.init();
     if (G.state !== 'playing') return;
-    if (cv.requestPointerLock && document.pointerLockElement !== cv) { try { cv.requestPointerLock(); } catch (er) {} }
+    if (document.pointerLockElement === cv) { input.fireHeld = true; fire(); return; }
+    if (cv.requestPointerLock) { try { cv.requestPointerLock(); } catch (er) {} }
     look.id = 'mouse'; look.x = e.clientX; look.y = e.clientY;
   });
   window.addEventListener('mousemove', function (e) {
@@ -1816,7 +2071,7 @@ function initInput() {
     if (document.pointerLockElement === cv) applyLook(e.movementX || 0, e.movementY || 0, CONFIG.LOOK_MOUSE);
     else if (look.id === 'mouse') { applyLook(e.clientX - look.x, e.clientY - look.y, CONFIG.LOOK_MOUSE * 2); look.x = e.clientX; look.y = e.clientY; }
   });
-  window.addEventListener('mouseup', function () { if (look.id === 'mouse') look.id = null; });
+  window.addEventListener('mouseup', function () { if (look.id === 'mouse') look.id = null; input.fireHeld = false; });
 
   // Boutons tactiles
   function bindBtn(id, down, up) {
@@ -1828,6 +2083,7 @@ function initInput() {
     el.addEventListener('mouseup', function () { if (up) up(); });
     el.addEventListener('mouseleave', function () { if (up) up(); });
   }
+  bindBtn('btnFire', function () { input.fireHeld = true; fire(); }, function () { input.fireHeld = false; });
   bindBtn('btnJump', function () { input.jumpQ = 0.15; });
   bindBtn('btnAction', function () { input.action = true; });
   bindBtn('btnSprint', function () { input.sprintBtn = true; }, function () { input.sprintBtn = false; });
@@ -1849,12 +2105,13 @@ function initInput() {
     var c = e.code || '', k = (e.key || '').toLowerCase();
     if (c === 'Space' || k === ' ') { e.preventDefault(); input.jumpQ = 0.15; }
     else if (c === 'KeyE' || k === 'e') input.action = true;
+    else if (c === 'KeyF' || k === 'f') { input.fireHeld = true; fire(); }
     else if (c === 'KeyV' || k === 'v') toggleView();
     else if (c === 'KeyM' || k === 'm') toggleMute();
     else if (c === 'KeyP' || c === 'Escape' || k === 'p' || k === 'escape') togglePause();
     else if ((c === 'Enter' || k === 'enter') && G.state === 'menu') startGame(1);
   });
-  window.addEventListener('keyup', function (e) { setKey(e, false); });
+  window.addEventListener('keyup', function (e) { setKey(e, false); if (e.code === 'KeyF' || (e.key || '').toLowerCase() === 'f') input.fireHeld = false; });
   window.addEventListener('blur', function () { input.f = input.b = input.l = input.r = input.sprintKey = input.sprintBtn = false; });
   document.addEventListener('pointerlockchange', function () {
     if (!document.pointerLockElement && G.state === 'playing' && G.hadLock) togglePause();
@@ -1882,6 +2139,7 @@ function updateHUD() {
   setText('hTime', m + ':' + (s < 10 ? '0' : '') + s);
   setCls('pTimer', t <= 15 ? 'chip glass danger' : 'chip glass');
   setText('hScore', String(G.score));
+  setText('ammo', String(Math.floor(G.energy)));
   var st = Math.round(P.stamina);
   if (hudCache.st !== st) {
     hudCache.st = st; $('staminaFill').style.width = st + '%';
@@ -1916,7 +2174,7 @@ function drawMinimap() {
   ctx.fillStyle = G.doorOpen ? '#40ff80' : '#b0662a';
   var dx = door.position.x / C + 0.5, dz = door.position.z / C + 0.5, horiz = Math.abs(L.goal[0] - L.parent[0]) > 0;
   if (horiz) ctx.fillRect(dx * cs - cs * 0.12, (dz - 0.5) * cs, cs * 0.24, cs); else ctx.fillRect((dx - 0.5) * cs, dz * cs - cs * 0.12, cs, cs * 0.24);
-  enemies.forEach(function (e) { if (e.active) dot(e.root.position.x, e.root.position.z, cs * 0.3, e.state === 'chase' ? '#ff2a2a' : '#c0306a'); });
+  enemies.forEach(function (e) { if (e.active && !e.dead) dot(e.root.position.x, e.root.position.z, cs * 0.3, e.state === 'chase' ? '#ff2a2a' : '#c0306a'); });
   // Joueur : triangle orienté vers la caméra
   var px = (P.x / C + 0.5) * cs, pz = (P.z / C + 0.5) * cs, a = Math.atan2(-Math.sin(G.yaw), -Math.cos(G.yaw));
   ctx.save(); ctx.translate(px, pz); ctx.rotate(-a + Math.PI);
@@ -1931,11 +2189,15 @@ function showPlayUI(show) {
   $('hud').className = show ? '' : 'hidden';
   $('controls').className = show ? '' : 'hidden';
   $('stamina').className = show ? 'glass' : 'glass hidden';
+  $('crosshair').className = show && G.fps ? (G.target ? 'lock' : '') : 'hidden';
+  if (!show) { var da = document.querySelectorAll('.darrow'); for (var i = 0; i < da.length; i++) da[i].style.display = 'none'; lockSprite.visible = false; input.fireHeld = false; }
   if (!show) { showPrompt(''); if (joy.active) endJoy(); look.id = null; input.sprintBtn = false; }
 }
 function updateQualityButtons() {
-  var b = document.querySelectorAll('.qbtn');
+  var b = document.querySelectorAll('.qbtn[data-q]');
   for (var i = 0; i < b.length; i++) b[i].className = 'qbtn' + (b[i].getAttribute('data-q') === Save.data.quality ? ' sel' : '');
+  var s = document.querySelectorAll('.sbtn');
+  for (i = 0; i < s.length; i++) s[i].className = 'qbtn sbtn' + (parseFloat(s[i].getAttribute('data-s')) === (Save.data.sens || 1) ? ' sel' : '');
 }
 function showMenu() {
   $('bestScore').textContent = Save.data.best;
@@ -1954,7 +2216,7 @@ function showEnd(o) {
   showScreen('endScreen');
 }
 function toggleMute() { Save.data.muted = !Save.data.muted; Save.save(); Sound.init(); Sound.setMuted(Save.data.muted); $('btnMute').textContent = Save.data.muted ? '🔇' : '🔊'; }
-function toggleView() { G.fps = !G.fps; toast(G.fps ? '👁 Vue première personne' : '🎥 Vue à l\'épaule', 1200); }
+function toggleView() { G.fps = !G.fps; $('crosshair').className = G.fps && G.state === 'playing' ? '' : 'hidden'; toast(G.fps ? '👁 Vue première personne' : '🎥 Vue à l\'épaule', 1200); }
 
 function initUI() {
   $('btnPlay').addEventListener('click', function () { Sound.init(); startGame(1); });
@@ -1971,7 +2233,11 @@ function initUI() {
   $('btnQuit').addEventListener('click', goMenu);
   $('btnMute').addEventListener('click', toggleMute);
   $('btnView').addEventListener('click', toggleView);
-  var qb = document.querySelectorAll('.qbtn');
+  var sb = document.querySelectorAll('.sbtn');
+  for (var j = 0; j < sb.length; j++) sb[j].addEventListener('click', function () {
+    Save.data.sens = parseFloat(this.getAttribute('data-s')); Save.save(); updateQualityButtons();
+  });
+  var qb = document.querySelectorAll('.qbtn[data-q]');
   for (var i = 0; i < qb.length; i++) qb[i].addEventListener('click', function () {
     Save.data.quality = this.getAttribute('data-q'); Save.save(); updateQualityButtons();
     setQuality(resolveQuality(), true);
@@ -1988,22 +2254,28 @@ function showError(msg) { hideScreens(); $('errorText').textContent = msg; $('er
 var G = {
   state: 'loading', level: 1, lives: CONFIG.START_LIVES, score: 0, levelStartScore: 0, time: 0,
   keys: 0, doorOpen: false, doorAnim: 0, freed: false, invuln: 0, shake: 0, lastTick: 0,
-  yaw: 0, camPitch: CONFIG.CAM_PITCH, fpsPitch: 0, fps: false, hadLock: false, cine: null
+  yaw: 0, camPitch: CONFIG.CAM_PITCH, fpsPitch: 0, fps: false, hadLock: false, cine: null,
+  lookX: 0, lookY: 0, energy: CONFIG.ENERGY_MAX, fireCd: 0, recoil: 0, aimHold: 0, target: null, kills: 0
 };
 
-function startGame(n) { G.lives = CONFIG.START_LIVES; G.score = 0; startLevel(n || 1); }
+function startGame(n) { G.lives = CONFIG.START_LIVES; G.score = 0; G.kills = 0; startLevel(n || 1); }
 
 function startLevel(n) {
   G.level = n;
   buildLevel(n);
   G.levelStartScore = G.score; G.time = L.P.time; G.keys = 0; G.doorOpen = false; G.doorAnim = 0; G.freed = false;
   G.invuln = 2; G.shake = 0; G.lastTick = 0; G.cine = null;
+  G.energy = CONFIG.ENERGY_MAX; G.fireCd = 0; G.recoil = 0; G.aimHold = 0; G.lookX = G.lookY = 0; G.target = null;
+  bolts.forEach(function (b) { b.on = false; b.s.visible = false; });
   sparks.visible = false; hudCache = {};
   document.body.className = ''; $('caption').className = '';
   hideScreens(); showPlayUI(true); updateHUD();
   G.state = 'playing';
   toast('Chapitre ' + n + ' — trouve les 3 clés dorées 🗝️', 2600);
-  if (n === 1) setTimeout(function () { if (G.state === 'playing') toast('Astuce : certaines clés sont en hauteur, saute !', 2600); }, 3200);
+  if (n === 1) {
+    setTimeout(function () { if (G.state === 'playing') toast('⚡ TIR : ton bâton repousse les Ombres (visée automatique)', 3000); }, 3000);
+    setTimeout(function () { if (G.state === 'playing') toast('Astuce : certaines clés sont en hauteur, saute !', 2600); }, 6600);
+  }
 }
 
 function checkKeys() {
@@ -2014,7 +2286,7 @@ function checkKeys() {
     if (dx * dx + dz * dz < 0.85 && Math.abs(k.pos.y - cy) < 0.95) {
       k.taken = true; G.keys++; G.score += CONFIG.SCORE_KEY; keys[i].visible = false;
       door.userData.lamps[G.keys - 1].material = MAT.lampOn;
-      Sound.key(); burstSparks(k.pos); sparks.material.opacity = 0.8;
+      Sound.key(); sparks.material.color.setHex(0xffd070).convertSRGBToLinear(); burstSparks(k.pos); sparks.material.opacity = 0.8;
       toast(G.keys < 3 ? '🗝️ Clé ' + G.keys + '/3 trouvée !' : '🗝️ Les 3 clés ! Va ouvrir la porte du donjon', 2400);
     }
   });
@@ -2024,7 +2296,7 @@ function checkKeys() {
 function updateInteract() {
   var ready = false, txt = '';
   var dd = Math.hypot(door.position.x - P.x, door.position.z - P.z);
-  if (!G.doorOpen && dd < 2.4) {
+  if (!G.doorOpen && dd < 2.9) {
     if (G.keys >= CONFIG.KEYS_NEEDED) { txt = '✋ ACTION / E : ouvrir la porte'; ready = true; }
     else txt = '🔒 Il faut 3 clés (' + G.keys + '/3)';
     if (input.action) { if (ready) openDoor(); else Sound.locked(); }
@@ -2064,7 +2336,7 @@ function playerHit() {
 function checkEnemyHits() {
   if (G.invuln > 0) return;
   for (var i = 0; i < enemies.length; i++) {
-    var e = enemies[i]; if (!e.active) continue;
+    var e = enemies[i]; if (!e.active || e.dead || e.stun > 0) continue;
     var dx = e.root.position.x - P.x, dz = e.root.position.z - P.z;
     if (dx * dx + dz * dz > 1.0) continue;
     var bottom = e.kind === 'chauve' ? e.root.position.y - 0.45 : 0, top = e.kind === 'chauve' ? e.root.position.y + 0.6 : (e.kind === 'gardien' ? 2.3 : 1.85);
@@ -2092,7 +2364,7 @@ function updateCinematic(dt) {
   pr.body.position.y = t > 1.6 && t < 3.2 ? Math.abs(Math.sin((t - 1.6) * 6)) * 0.12 : 0;
   hero.shR.rotation.x = t > 2.2 ? -smooth01((t - 2.2) / 0.6) * 2.4 : 0;           // Aren lève le bras
   if (!c.burst && t > 1.5) {
-    c.burst = true; burstSparks(tmpV.set(cage.position.x, 1.7, cage.position.z)); Sound.win();
+    c.burst = true; sparks.material.color.setHex(0xffd070).convertSRGBToLinear(); burstSparks(tmpV.set(cage.position.x, 1.7, cage.position.z)); Sound.win();
     $('caption').textContent = '✨ Lysa est libre ! ✨'; $('caption').className = 'show';
   }
   // Caméra en orbite lente autour de la princesse
@@ -2115,7 +2387,7 @@ function levelComplete() {
   if (!last && G.level + 1 > Save.data.maxLevel) Save.data.maxLevel = G.level + 1;
   Save.save();
   setDof(0);
-  var stats = '👑 Libération : <b>+' + CONFIG.SCORE_RESCUE + '</b><br>⏳ Bonus temps : <b>+' + bonus + '</b><br>⭐ Score : <b>' + G.score + '</b>' + (extra ? '<br>❤️ Vie bonus : <b>+1</b>' : '');
+  var stats = '💥 Ombres dissipées : <b>' + G.kills + '</b><br>👑 Libération : <b>+' + CONFIG.SCORE_RESCUE + '</b><br>⏳ Bonus temps : <b>+' + bonus + '</b><br>⭐ Score : <b>' + G.score + '</b>' + (extra ? '<br>❤️ Vie bonus : <b>+1</b>' : '');
   if (last) {
     G.state = 'victory';
     showEnd({ icon: '👑', title: 'Le royaume est sauvé !', text: 'Le sortilège est brisé : Lysa est enfin libre, et le Seigneur des Ombres a disparu à jamais.',
@@ -2134,7 +2406,7 @@ function gameOver(title, text) {
 }
 function togglePause() {
   if (G.state === 'playing') {
-    G.state = 'paused'; showPlayUI(false); showScreen('pauseScreen');
+    G.state = 'paused'; showPlayUI(false); updateQualityButtons(); showScreen('pauseScreen');
     if (document.exitPointerLock && document.pointerLockElement) document.exitPointerLock();
   } else if (G.state === 'paused') { hideScreens(); showPlayUI(true); G.state = 'playing'; }
 }
@@ -2154,8 +2426,17 @@ function updatePlaying(dt) {
   if (G.time <= 0) { G.time = 0; updateHUD(); gameOver('Temps écoulé !', 'Le sortilège s\'est refermé sur le labyrinthe…'); return; }
   if (G.time <= 15 && Math.ceil(G.time) !== G.lastTick) { G.lastTick = Math.ceil(G.time); Sound.tick(); }
   if (G.invuln > 0) G.invuln -= dt;
+  // Arme : recharge + tir maintenu
+  G.energy = Math.min(CONFIG.ENERGY_MAX, G.energy + CONFIG.ENERGY_REGEN * dt);
+  if (G.fireCd > 0) G.fireCd -= dt;
+  if (G.recoil > 0) G.recoil = Math.max(0, G.recoil - dt * 5);
+  if (input.fireHeld) fire();
+  updateLook(dt);
   updatePlayer(dt);
   for (var i = 0; i < enemies.length; i++) if (enemies[i].active) updateEnemy(enemies[i], dt);
+  updateBolts(dt);
+  updateTargeting(dt);
+  updateDanger();
   checkKeys();
   checkEnemyHits();
   if (G.state !== 'playing') return;
@@ -2214,6 +2495,8 @@ function frame(t) {
   updateCamera(dt);
   updateLights(dt);
   updateParticles(dt);
+  updateViewmodel(dt);
+  if (G.state !== 'playing') updateBolts(dt);
   if (G.state === 'playing') { mmT -= dt; if (mmT <= 0) { mmT = 0.1; drawMinimap(); } }
   render();
   perfMonitor(realDt);
@@ -2262,7 +2545,6 @@ function resize() {
   var w = window.innerWidth || document.documentElement.clientWidth, h = window.innerHeight || document.documentElement.clientHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h;
-  camera.fov = w < h ? 75 : 62;                  // champ plus large en portrait
   camera.updateProjectionMatrix();
   buildComposer();
   if (!joy.active && joyEl) placeJoyIdle();
@@ -2294,6 +2576,7 @@ function boot() {
     for (var i = 0; i < 3; i++) keys.push(makeKey());
     createEnemies();
     createParticles();
+    createWeapon();
     initInput(); initUI();
     setQuality(qn, false);
     window.addEventListener('resize', resize);
@@ -2302,7 +2585,7 @@ function boot() {
     goMenu();
     requestAnimationFrame(frame);
     // Accès debug (console)
-    window.PR = { G: G, P: P, L: function () { return L; }, enemies: enemies, keys: keys, startLevel: startLevel, setQuality: setQuality, cage: cage, door: door, openDoor: openDoor, startCinematic: startCinematic, quality: function () { return qName; } };
+    window.PR = { G: G, P: P, L: function () { return L; }, enemies: enemies, keys: keys, startLevel: startLevel, setQuality: setQuality, cage: cage, door: door, openDoor: openDoor, startCinematic: startCinematic, quality: function () { return qName; }, fire: fire, bolts: bolts };
   });
 }
 boot();
