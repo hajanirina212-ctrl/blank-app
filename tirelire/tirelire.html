@@ -179,6 +179,13 @@ details summary{list-style-position:inside}
 .lock .box{width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;text-align:center}
 .lock input{text-align:center;font-size:26px;letter-spacing:.4em}
 .lock .err{color:var(--bad);font-weight:700;min-height:1.2em;font-size:13px}
+.qk{display:flex;gap:6px;flex-wrap:wrap}
+.qk .chip{padding:6px 10px;font-size:12.5px}
+.hist-item .acts{display:flex;gap:6px;flex-wrap:nowrap}
+.rap-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding-block:6px;border-top:1px dashed var(--line)}
+.rap-row:first-of-type{border-top:0}
+.bil-sep{border:0;border-top:1px solid var(--line);width:100%;margin:2px 0}
+.bil ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:13.5px}
 </style>
 
 <div class="wrap">
@@ -195,6 +202,7 @@ details summary{list-style-position:inside}
   <!-- AUJOURD'HUI -->
   <section id="t-jour" class="stack">
     <div id="reste" class="card urgent" hidden></div>
+    <div id="rappel" class="card" hidden></div>
     <div id="today" class="card"></div>
     <div id="split" class="card"></div>
 
@@ -219,16 +227,26 @@ details summary{list-style-position:inside}
       <label for="f-montant">Montant (Ariary)
         <input id="f-montant" class="amount" inputmode="numeric" placeholder="ex. 15 000" required>
       </label>
+      <div id="quick" class="qk" role="group" aria-label="Montants rapides">
+        <button type="button" class="chip" data-quick="500">+500</button>
+        <button type="button" class="chip" data-quick="1000">+1 000</button>
+        <button type="button" class="chip" data-quick="2000">+2 000</button>
+        <button type="button" class="chip" data-quick="5000">+5 000</button>
+        <button type="button" class="chip" data-quick="10000">+10 000</button>
+        <button type="button" class="chip" data-quick="clear">Effacer</button>
+      </div>
       <div id="chips-wrap" class="stack" style="gap:6px">
         <span class="eyebrow">Catégorie</span>
         <div id="chips" class="chips"></div>
       </div>
       <p id="f-hint" class="small" hidden></p>
       <div class="grid2">
-        <label for="f-note">Note (facultatif)<input id="f-note" placeholder="ex. marché Analakely"></label>
+        <label for="f-note">Note (facultatif)<input id="f-note" placeholder="ex. marché Analakely" list="notes-list" maxlength="120"></label>
+        <datalist id="notes-list"></datalist>
         <label for="f-date">Date<input id="f-date" type="date"></label>
       </div>
       <button class="btn btn-primary" id="f-submit" type="submit">Ajouter la dépense</button>
+      <button class="btn" id="f-cancel" type="button" hidden>Annuler la modification</button>
     </form>
 
     <div class="card">
@@ -283,6 +301,21 @@ details summary{list-style-position:inside}
         <textarea id="bk-text" rows="4" placeholder="Appuie sur Exporter, ou colle ici une sauvegarde puis Restaurer"></textarea>
       </label>
       <button type="button" class="btn btn-danger" id="bk-import" style="align-self:flex-start">Restaurer cette sauvegarde</button>
+    </div>
+    <div class="card" id="rappel-card">
+      <h2 class="eyebrow">Rappel du soir</h2>
+      <p class="small muted">À l'heure choisie, l'application te rappelle de noter tes dépenses si tu n'as rien noté ni confirmé « Rien dépensé ».</p>
+      <label for="rp-heure">Heure du rappel<select id="rp-heure"></select></label>
+      <button type="button" class="btn" id="rp-notif" style="align-self:flex-start">Activer les notifications du téléphone</button>
+      <p class="small muted" id="rp-state"></p>
+    </div>
+    <div class="card" id="lang-card">
+      <h2 class="eyebrow">Langue</h2>
+      <div class="seg" role="group" aria-label="Langue">
+        <button type="button" data-lang="fr" id="lang-fr" aria-pressed="true">Français</button>
+        <button type="button" data-lang="mg" id="lang-mg" aria-pressed="false">Malagasy</button>
+      </div>
+      <p class="small muted" id="lang-note"></p>
     </div>
     <div class="card" id="pin-card">
       <h2 class="eyebrow">Code PIN</h2>
@@ -350,6 +383,7 @@ if(!["jour","secours","histo","reglages"].includes(tab)) tab = "jour";
 let formType = "depense", formCat = null, menuShift = 0, pendingDel = null, histMonth = null;
 let reglagesDirty = false, draftCats = null, draftLaokas = null;
 let CREANCES = [], pendingCr = null, pendingSweep = false;
+let JOURS = {}, editingId = null;
 
 /* ---------- Utilitaires ---------- */
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -473,7 +507,7 @@ function allowance(m, t){
     });
   const recs = {};
   MOVES.forEach(x => { if(x.type === "epargne" && x.resteJour && inCycle(x.resteJour, m)) recs[x.resteJour] = (recs[x.resteJour]||0) + (Number(x.montant)||0); });
-  const noted = new Set(MOVES.filter(x => x.type === "depense").map(x => x.date));
+  const noted = new Set(MOVES.filter(x => x.type === "depense").map(x => x.date).concat(Object.keys(JOURS)));
   let pool = vars.reduce((a,k) => a + (base[k.id]||0), 0) - R - before;
   const limite = addDays(t, -3), days = [];
   for(let d = start; d <= t && d <= ce; d = addDays(d, 1)){
@@ -481,13 +515,14 @@ function allowance(m, t){
     const Sd = daySpend[d] || 0;
     let sweep = 0, recorded = false, pending = false;
     if(d in recs){ sweep = recs[d]; recorded = true; }
-    else if(d < t){ sweep = Math.max(0, Math.floor(A - Sd)); pending = sweep > 0; }
+    else if(d < t && noted.has(d)){ sweep = Math.max(0, Math.floor(A - Sd)); pending = sweep > 0; }
     days.push({d, A, S:Sd, sweep, recorded, pending, noted:noted.has(d), ok: Sd <= A + 0.5});
     if(d < t) pool -= Sd + sweep;
   }
   const today = days.length && days[days.length-1].d === t ? days[days.length-1] : null;
   return {R, rizUsed, start, days, today, pool:Math.max(0,pool), left: daysBetween(t, ce) + 1};
 }
+function dayNoted(d){ return !!JOURS[d] || MOVES.some(x => x.type === "depense" && x.date === d); }
 function creancesAttendues(){ return CREANCES.filter(x => x.statut !== "recue"); }
 
 /* ---------- Calculs ---------- */
@@ -739,7 +774,7 @@ function resteJourTxt(c){
   if(hier){
     if(hier.recorded) h += `<p class="small muted">Reste d'hier versé dans ton épargne : <b>${fmt(hier.sweep)}</b>. Mets cet argent de côté (enveloppe épargne ou Mvola).</p>`;
     else if(hier.pending) h += `<p class="small muted">Reste d'hier : <b>${fmt(hier.sweep)}</b>. L'application l'ajoute automatiquement à ton épargne. Mets cet argent de côté.</p>`;
-    else if(!hier.noted) h += `<p class="small muted">Rien n'est noté hier : note tes dépenses d'hier pour que le reste puisse aller dans l'épargne.</p>`;
+    else if(!hier.noted) h += `<p class="small muted">Rien n'est noté hier : note tes dépenses d'hier, ou confirme « Rien dépensé », pour que le reste aille dans l'épargne.</p>`;
   }
   return h;
 }
@@ -902,7 +937,8 @@ function renderChips(){
   $("#type-dep").setAttribute("aria-pressed", formType === "depense");
   $("#type-ep").setAttribute("aria-pressed", formType === "epargne");
   const inp = $("#f-montant"), hint = $("#f-hint"), btn = $("#f-submit");
-  const k = catById(formCat), uniq = formType === "depense" && isUnique(k);
+  const k = catById(formCat), uniq = formType === "depense" && isUnique(k) && !editingId;
+  $("#quick").hidden = uniq; $("#f-cancel").hidden = !editingId;
   if(uniq){
     const c = compute(), m = c.bud[k.id], deja = c.spent[k.id] > 0;
     inp.readOnly = true; inp.dataset.locked = "1";
@@ -914,7 +950,7 @@ function renderChips(){
   } else {
     if(inp.dataset.locked){ inp.readOnly = false; inp.value = ""; delete inp.dataset.locked; }
     hint.hidden = true;
-    btn.textContent = formType === "depense" ? "Ajouter la dépense" : "Ajouter à l'épargne";
+    btn.textContent = editingId ? "Enregistrer la modification" : formType === "depense" ? "Ajouter la dépense" : "Ajouter à l'épargne";
     btn.disabled = readOnly;
   }
 }
@@ -949,17 +985,52 @@ function renderCats(c){
   $("#cats").innerHTML = html;
 }
 
-function renderBilan(){
-  if(BILAN){
-    const st = {ok:["ok","Dans le budget"], attention:["warn","À surveiller"], depasse:["bad","Dépassement"]}[BILAN.statut] || ["neutral","Bilan"];
-    $("#bilan").innerHTML = `
-      <div class="row between"><h2 class="eyebrow">Point du jour · ${esc(shortDate(BILAN.date || todayStr()))}</h2><span class="pill ${st[0]}">${esc(st[1])}</span></div>
-      <div class="bilan">${BILAN.titre ? `<b>${esc(BILAN.titre)}</b>` : ""}<p>${esc(BILAN.texte || "")}</p></div>`;
-  } else {
-    $("#bilan").innerHTML = `
-      <h2 class="eyebrow">Point du jour</h2>
-      <p class="small muted">Chaque matin, Claude relit tes mouvements et dépose ici ton point du jour : budget à respecter, menu, carburant les jours de travail, et une nouvelle combinaison de dépenses dès qu'il y a un dépassement.</p>`;
+function cycleReport(k){
+  const bud = budgetsFor(k, true), spent = {};
+  S.categories.forEach(c => spent[c.id] = 0);
+  let dep = 0, ep = 0, autres = 0, nb = 0;
+  MOVES.forEach(x => {
+    if(!inCycle(x.date, k)) return; nb++;
+    const a = Number(x.montant)||0;
+    if(x.type === "epargne"){ ep += a; return; }
+    dep += a; if(x.cat in spent) spent[x.cat] += a; else autres += a;
+  });
+  const cats = S.categories.filter(c => actif(c, k)).map(c => ({c, b:bud[c.id]||0, s:spent[c.id]||0}));
+  const totBud = cats.reduce((a,x) => a + x.b, 0);
+  const over = cats.filter(x => x.s > x.b).sort((a,b) => (b.s-b.b) - (a.s-a.b));
+  const t = todayStr(), tt = k === cycleKey(t) ? t : addDays(cycleEnd(k), 1);
+  let tenus = null, total = 0;
+  if(S.resteJour && S.resteJour.depuis && S.resteJour.depuis <= cycleEnd(k)){
+    const days = allowance(k, tt).days.filter(d => d.d < tt && dayNoted(d.d));
+    total = days.length; tenus = days.filter(d => d.ok).length;
   }
+  const big = cats.slice().sort((a,b) => b.s - a.s)[0];
+  return {k, dep, ep, autres, nb, cats, totBud, over, tenus, total, big, prevue:epargneDuCycle(k)};
+}
+function bilanHtml(k, enCours){
+  const r = cycleReport(k);
+  const statut = r.dep > r.totBud && r.totBud > 0 ? ["bad","Dépassement"] : r.over.length ? ["warn","À surveiller"] : ["ok","Dans le budget"];
+  const lignes = [];
+  lignes.push(`Dépensé : <b>${fmt(r.dep)}</b> sur ${fmt(r.totBud)} de budget.`);
+  lignes.push(`Épargne versée : <b>${fmt(r.ep)}</b>${r.prevue > 0 ? ` (prévu : ${fmt(r.prevue)})` : ""}.`);
+  if(r.tenus != null && r.total > 0) lignes.push(`Jours tenus : <b>${r.tenus} sur ${r.total}</b> (budget du jour respecté).`);
+  if(r.big && r.big.s > 0) lignes.push(`Plus gros poste : <b>${esc(r.big.c.nom)}</b> (${fmt(r.big.s)}).`);
+  const conseils = [];
+  r.over.slice(0, 3).forEach(x => conseils.push(`<b>${esc(x.c.nom)}</b> dépasse de ${fmt(x.s - x.b)} : réduis-la au prochain cycle, ou relève son plafond si le besoin est réel.`));
+  if(r.autres > 0) conseils.push(`${fmt(r.autres)} sont notés dans une catégorie supprimée : recrée-la ou reclasse ces dépenses.`);
+  if(!enCours && r.prevue > 0 && r.ep < r.prevue) conseils.push(`L'épargne versée est inférieure de ${fmt(r.prevue - r.ep)} à ce qui était prévu.`);
+  if(r.tenus != null && r.total >= 5 && r.tenus / r.total >= 0.8 && !r.over.length) conseils.push("Très bon rythme : tu tiens ton budget presque tous les jours. Continue.");
+  if(r.tenus != null && r.total >= 5 && r.tenus / r.total < 0.5) conseils.push("Moins de la moitié des jours tenus : essaie de noter tes dépenses chaque soir, et baisse le montant des sorties.");
+  if(!conseils.length) conseils.push(r.nb ? "Rien à corriger pour le moment." : "Aucun mouvement noté pour l'instant.");
+  return `<div class="row between"><h2 class="eyebrow">${enCours ? "Bilan du cycle en cours" : "Bilan du cycle précédent"} · ${esc(cycleLabel(k))}</h2><span class="pill ${statut[0]}">${esc(statut[1])}</span></div>
+    <div class="bil"><ul>${lignes.map(x => `<li>${x}</li>`).join("")}</ul></div>
+    <div class="bilan"><b>À retenir</b><ul style="margin:0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:3px">${conseils.map(x => `<li>${x}</li>`).join("")}</ul></div>`;
+}
+function renderBilan(){
+  const t = todayStr(), cur = cycleKey(t), prev = cycleKey(addDays(cycleStart(cur), -1));
+  const parts = [bilanHtml(cur, true)];
+  if(MOVES.some(x => inCycle(x.date, prev))) parts.push(bilanHtml(prev, false));
+  $("#bilan").innerHTML = parts.join('<hr class="bil-sep">');
 }
 
 function renderPlan(c){
@@ -1155,6 +1226,36 @@ function renderSim(c){
   out.innerHTML = `<b>${fmt(v)}</b> = environ <b>${joursTxt(j)}</b> de retard sur « ${esc(S.objectif.nom)} »` + (dpct != null ? `, soit ${dpct >= 1 ? dpct.toFixed(1).replace(".",",")+" jours" : Math.round(dpct*100)+" % d'une journée"} de ton budget du quotidien.` : ".");
 }
 
+function rappelHeure(){ try{ const v = localStorage.getItem("tirelire.rappel"); if(v === "off") return null; return v ? Number(v) : 20; }catch(e){ return 20; } }
+function renderRappel(){
+  const el = $("#rappel"), t = todayStr();
+  if(!(S.resteJour && S.resteJour.depuis) || t < S.resteJour.depuis){ el.hidden = true; return; }
+  const past = [];
+  for(let d = addDays(t, -7); d < t; d = addDays(d, 1)){ if(d >= S.resteJour.depuis && !dayNoted(d)) past.push(d); }
+  const todayHas = MOVES.some(x => x.type === "depense" && x.date === t), conf = !!JOURS[t];
+  const h = rappelHeure(), late = h != null && new Date().getHours() >= h && !todayHas && !conf;
+  if(!past.length && todayHas){ el.hidden = true; return; }
+  el.hidden = false; el.classList.toggle("urgent", late || past.length > 0);
+  let html = `<h2 class="eyebrow">Vérifie tes dépenses</h2>`;
+  if(past.length){
+    html += `<p class="small">Jours sans dépense notée. Leur reste n'est pas encore versé à l'épargne : note tes dépenses (champ Date) ou confirme.</p>`;
+    html += past.map(d => `<div class="rap-row"><span>${esc(longDate(d))}</span><button type="button" class="btn btn-sm" data-rien="${esc(d)}" ${readOnly?"disabled":""}>Rien dépensé</button></div>`).join("");
+  }
+  if(!todayHas){
+    if(conf) html += `<div class="rap-row"><span>Aujourd'hui : <b>rien dépensé</b> (confirmé)</span><button type="button" class="btn btn-sm" data-rien-undo="${esc(t)}" ${readOnly?"disabled":""}>Annuler</button></div>`;
+    else html += `<div class="rap-row"><span>${late ? `<b>Il est ${new Date().getHours()} h :</b> as-tu noté tes dépenses d'aujourd'hui ?` : "Pas de dépense aujourd'hui ?"}</span><button type="button" class="btn btn-sm ${late?"btn-primary":""}" data-rien="${esc(t)}" ${readOnly?"disabled":""}>Rien dépensé aujourd'hui</button></div>`;
+  }
+  el.innerHTML = html;
+}
+function maybeNotify(){
+  try{
+    if(!("Notification" in window) || Notification.permission !== "granted") return;
+    const h = rappelHeure(); if(h == null || new Date().getHours() < h) return;
+    const t = todayStr(); if(dayNoted(t) || localStorage.getItem("tirelire.notifDay") === t) return;
+    localStorage.setItem("tirelire.notifDay", t);
+    new Notification("Tirelire Ariary", {body:"As-tu noté tes dépenses d'aujourd'hui ?"});
+  }catch(e){}
+}
 function renderHisto(){
   const months = Array.from(new Set(MOVES.filter(x => x.date).map(x => cycleKey(x.date)))).sort().reverse();
   const cur = cycleKey(todayStr());
@@ -1170,8 +1271,8 @@ function renderHisto(){
       <div class="hist-day"><h3>${esc(longDate(d))}</h3>
       ${byDay[d].map(x => `<div class="hist-item">
         <div><b style="font-size:14px">${x.type==="epargne" ? "Épargne" : esc(catName(x.cat))}</b>${x.exemple?`<span class="ex">exemple</span>`:""}${x.note?`<p class="small muted">${esc(x.note)}</p>`:""}</div>
-        <span class="amt ${x.type==="epargne"?"ep":""}">${x.type==="epargne"?"+":"−"}${fmt(x.montant)}</span>
-        <button type="button" class="x ${pendingDel===x.id?"confirm":""}" data-del="${esc(x.id)}" ${readOnly?"disabled":""} aria-label="Supprimer">${pendingDel===x.id?"Confirmer":"Suppr."}</button>
+        <span class="amt ${x.type==="epargne"?"ep":""}">${x.type==="epargne" ? (Number(x.montant) < 0 ? "−" : "+") : "−"}${fmt(Math.abs(Number(x.montant)||0))}</span>
+        <span class="acts">${(x.resteJour || x.reste || x.creance || x.detail) ? "" : `<button type="button" class="x" data-edit="${esc(x.id)}" ${readOnly?"disabled":""} aria-label="Modifier">Modifier</button>`}<button type="button" class="x ${pendingDel===x.id?"confirm":""}" data-del="${esc(x.id)}" ${readOnly?"disabled":""} aria-label="Supprimer">${pendingDel===x.id?"Confirmer":"Suppr."}</button></span>
       </div>`).join("")}</div>`).join("");
   }
   $("#ex-card").hidden = !MOVES.some(x => x.exemple) && !S.exemple;
@@ -1286,6 +1387,11 @@ function renderTabs(){
   });
 }
 
+function refreshNotes(){
+  const seen = new Set(), out = [];
+  MOVES.filter(x => x.type === "depense" && x.note && !/^(Payé|Riz\b)/i.test(x.note)).sort((a,b) => (b.ts||0) - (a.ts||0)).forEach(x => { const n = x.note.trim(); if(n && !seen.has(n.toLowerCase()) && out.length < 40){ seen.add(n.toLowerCase()); out.push(n); } });
+  $("#notes-list").innerHTML = out.map(n => `<option value="${esc(n)}">`).join("");
+}
 function render(){
   const c = compute();
   const note = $("#demo-note");
@@ -1295,7 +1401,7 @@ function render(){
   if(readOnly) notes.push("<b>Lecture seule</b> : tu n'as pas les droits pour modifier ce budget.");
   if(S.exemple || MOVES.some(x => x.exemple)) notes.push("<b>Chiffres d'exemple</b> : remplace-les dans Réglages, puis efface les exemples dans Historique.");
   note.innerHTML = notes.join("<br>"); note.hidden = !notes.length;
-  renderHero(c); renderReste(c); renderToday(c); renderSplit(c); renderCreances(); renderChips(); renderCats(c); renderBilan();
+  renderHero(c); renderReste(c); renderToday(c); renderSplit(c); renderCreances(); renderChips(); renderCats(c); renderBilan(); renderRappel(); refreshNotes();
   renderPlan(c); renderMenu(c); renderMindset(c); renderSim(c); renderHisto(); renderReglages();
   const dot = c.D > 0 ? `<span class="dot" aria-label="dépassement"></span>` : "";
   $("#tab-secours").innerHTML = "Plan B" + dot;
@@ -1321,6 +1427,18 @@ async function addMove(obj){
   if(!db){ MOVES.push(Object.assign({id:"local-"+Date.now()}, obj)); render(); return; }
   try{ await db.collection("mouvements").add(obj); }catch(e){ handleErr(e); throw e; }
 }
+async function editMove(id, patch){
+  try{ await db.doc("mouvements/"+id).update(patch); }catch(e){ handleErr(e); throw e; }
+}
+function startEdit(id){
+  const x = MOVES.find(y => y.id === id); if(!x) return;
+  editingId = id; formType = x.type; if(x.cat) formCat = x.cat; disarmPay();
+  tab = "jour"; try{ localStorage.setItem("tirelire.tab", tab); }catch(e){}
+  renderTabs(); renderChips();
+  $("#f-montant").value = String(x.montant); $("#f-note").value = x.note || ""; $("#f-date").value = x.date;
+  renderChips(); $("#add").scrollIntoView({block:"center"}); toast("Modifie puis enregistre");
+}
+function cancelEdit(){ editingId = null; $("#f-montant").value = ""; $("#f-note").value = ""; $("#f-date").value = todayStr(); renderChips(); }
 async function delMove(id){
   if(!db){ MOVES = MOVES.filter(x => x.id !== id); render(); return; }
   try{ await db.doc("mouvements/"+id).delete(); }catch(e){ handleErr(e); }
@@ -1331,7 +1449,13 @@ document.addEventListener("click", async ev => {
   const b = ev.target.closest("button"); if(!b) return;
   if(b.dataset.tab){ tab = b.dataset.tab; try{ localStorage.setItem("tirelire.tab", tab); }catch(e){} pendingDel = null; renderTabs(); window.scrollTo({top:0}); return; }
   if(b.dataset.go){ tab = b.dataset.go; try{ localStorage.setItem("tirelire.tab", tab); }catch(e){} renderTabs(); window.scrollTo({top:0}); return; }
-  if(b.dataset.type){ formType = b.dataset.type; disarmPay(); renderChips(); return; }
+  if(b.dataset.type){ if(editingId) return; formType = b.dataset.type; disarmPay(); renderChips(); return; }
+  if(b.dataset.quick){ const inp = $("#f-montant"); if(inp.readOnly) return; inp.value = b.dataset.quick === "clear" ? "" : String(toNum(inp.value) + Number(b.dataset.quick)); return; }
+  if(b.id === "f-cancel"){ cancelEdit(); return; }
+  if(b.dataset.edit){ startEdit(b.dataset.edit); return; }
+  if(b.dataset.rien){ try{ await db.doc("jours/"+b.dataset.rien).set({rien:true, ts:Date.now()}); toast("Noté : rien dépensé"); }catch(e){ handleErr(e); } return; }
+  if(b.dataset.rienUndo){ try{ await db.doc("jours/"+b.dataset.rienUndo).delete(); }catch(e){ handleErr(e); } return; }
+  if(b.dataset.lang){ setLang(b.dataset.lang); return; }
   if(b.dataset.cat){ formCat = b.dataset.cat; disarmPay(); renderChips(); return; }
   if(b.id === "menu-next"){ menuShift++; renderMenu(compute()); return; }
   if(b.dataset.del){
@@ -1475,22 +1599,34 @@ document.addEventListener("click", async ev => {
   }
 });
 
+$("#f-note").addEventListener("change", () => {
+  const v = $("#f-note").value.trim().toLowerCase(); if(!v || editingId || formType !== "depense") return;
+  const m = MOVES.filter(x => x.type === "depense" && x.note && x.note.trim().toLowerCase() === v).sort((a,b) => (b.ts||0) - (a.ts||0))[0];
+  if(!m) return;
+  if(m.cat && catById(m.cat) && !isUnique(catById(m.cat))){ formCat = m.cat; renderChips(); }
+  const inp = $("#f-montant"); if(!inp.readOnly && !inp.value) inp.value = String(m.montant);
+});
 $("#add").addEventListener("submit", async ev => {
   ev.preventDefault();
   if(readOnly) return;
   const k0 = catById(formCat);
-  if(formType === "depense" && isUnique(k0)){
+  if(formType === "depense" && isUnique(k0) && !editingId){
     const c = compute(), m = c.bud[k0.id];
     if(c.spent[k0.id] > 0){ toast(k0.nom + " est déjà payé pour ce cycle."); return; }
     if(!(m > 0)){ toast(k0.nom + " n'est pas à payer ce cycle."); return; }
     if(pendingPay !== k0.id){ armPay(k0.id); renderChips(); return; }
     disarmPay();
   }
-  const montant = (formType === "depense" && isUnique(k0)) ? compute().bud[k0.id] : toNum($("#f-montant").value);
+  const montant = (formType === "depense" && isUnique(k0) && !editingId) ? compute().bud[k0.id] : toNum($("#f-montant").value);
   if(montant <= 0){ toast("Indique un montant en Ariary."); $("#f-montant").focus(); return; }
   const date = $("#f-date").value || todayStr();
   const obj = {type:formType, montant, note:$("#f-note").value.trim().slice(0,120), date, ts:Date.now()};
   if(formType === "depense") obj.cat = formCat || "autre";
+  if(editingId){
+    const id = editingId, patch = {montant, note:obj.note, date}; if(obj.cat) patch.cat = obj.cat;
+    try{ await editMove(id, patch); editingId = null; $("#f-montant").value = ""; $("#f-note").value = ""; $("#f-date").value = todayStr(); toast("Mouvement modifié"); }catch(e){}
+    renderChips(); return;
+  }
   const btn = $("#f-submit"); btn.disabled = true;
   try{
     await addMove(obj);
@@ -1574,6 +1710,59 @@ const LocalDB = (function(){
   };
 })();
 
+/* ---------- Langue (français / malagasy) ---------- */
+const MG = {
+"Aujourd'hui":"Anio","Plan B":"Vahaolana B","Historique":"Tantara","Réglages":"Fikirakirana",
+"Argent qu'on te doit":"Vola tokony hoverina anao","Noter un mouvement":"Hanoratra hetsika vola",
+"Dépense":"Fandaniana","Épargne":"Fitehirizam-bola","Catégorie":"Sokajy","Date":"Daty",
+"Note (facultatif)":"Fanamarihana (tsy voatery)","Montant (Ariary)":"Vola (Ariary)",
+"Ajouter la dépense":"Ampidiro ny fandaniana","Ajouter à l'épargne":"Ampidiro ao amin'ny fitehirizam-bola",
+"Enregistrer la modification":"Tehirizo ny fanovana","Annuler la modification":"Foano ny fanovana",
+"Budgets du mois":"Teti-bola","Mouvements":"Hetsika vola","Suppr.":"Fafao","Modifier":"Ovay","Confirmer":"Ekeo",
+"Annuler":"Foano","Effacer":"Fafana","Rien dépensé":"Tsy nandany","Rien dépensé aujourd'hui":"Tsy nandany vola anio",
+"Vérifie tes dépenses":"Hamarino ny fandaniana","Mon objectif":"Ny tanjoko","Nom de l'objectif":"Anaran'ny tanjona",
+"Montant visé (Ar)":"Vola tiana hahazoana (Ar)","Échéance":"Daty farany","Mon mois":"Ny volana",
+"Revenu mensuel (Ar)":"Vola miditra isam-bolana (Ar)","Épargne prévue / mois (Ar)":"Fitehirizam-bola kasaina isam-bolana (Ar)",
+"Jour de paie (début du cycle)":"Andro fandoavana karama (fiandohan'ny fe-potoana)",
+"Repas et riz":"Sakafo sy vary","Mes laoka":"Ny laoka","Catégories et plafonds":"Sokajy sy fetra","Ajouter":"Ampio",
+"Enregistrer les réglages":"Tehirizo ny fikirakirana","Sauvegarde":"Rakitra fiarovana","Exporter (fichier + texte)":"Alaivo (rakitra + soratra)",
+"Copier le texte":"Adikao ny soratra","Restaurer cette sauvegarde":"Averina ity rakitra fiarovana ity",
+"Code PIN":"Kaody PIN","Enregistrer le code":"Tehirizo ny kaody","Retirer le code":"Esory ny kaody",
+"Entre ton code PIN":"Ampidiro ny kaody PIN-nao","Ouvrir":"Sokafy","Code incorrect":"Diso ny kaody",
+"Rappel du soir":"Fampatsiahivana hariva","Langue":"Fiteny","Bilan du cycle en cours":"Famintinana ny fe-potoana ankehitriny",
+"Bilan du cycle précédent":"Famintinana ny fe-potoana teo aloha","À retenir":"Tadidio","Dans le budget":"Ao anatin'ny teti-bola",
+"À surveiller":"Tokony hojerena","Dépassement":"Fandaniana be loatra","Bienvenue !":"Tongasoa !",
+"Tu peux encore dépenser aujourd'hui":"Mbola azonao lanina anio","Dépassement du budget du jour":"Nihoatra ny teti-bola anio",
+"Où va ton argent":"Ho aiza ny volanao","Objectif atteint":"Tanjona vita","Dans les temps":"Mandeha araka ny fotoana",
+"En retard sur le rythme":"Tara ny fandehanana","Ajouter au stock":"Ampio ao amin'ny tahiry",
+"Pas de dépense aujourd'hui ?":"Tsy nisy fandaniana anio ?","Aucun mouvement noté pour l'instant.":"Mbola tsy misy hetsika voasoratra."
+};
+const MGATTR = {"ex. 15 000":"oh. 15 000","ex. marché Analakely":"oh. tsena Analakely"};
+let LANG = "fr"; try{ LANG = localStorage.getItem("tirelire.lang") === "mg" ? "mg" : "fr"; }catch(e){}
+const origTxt = new WeakMap(); let langTimer = null;
+const langObs = new MutationObserver(() => { clearTimeout(langTimer); langTimer = setTimeout(applyLang, 40); });
+function applyLang(){
+  langObs.disconnect();
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), nodes = [];
+  let n; while((n = w.nextNode())) nodes.push(n);
+  nodes.forEach(n => {
+    const par = n.parentNode; if(!par || /^(SCRIPT|STYLE)$/.test(par.nodeName)) return;
+    const had = origTxt.has(n), orig = had ? origTxt.get(n) : n.nodeValue, key = orig.trim();
+    if(LANG === "mg" && MG[key]){ if(!had) origTxt.set(n, orig); n.nodeValue = orig.replace(key, MG[key]); }
+    else if(LANG === "fr" && had){ n.nodeValue = orig; origTxt.delete(n); }
+  });
+  document.querySelectorAll("[placeholder]").forEach(el => {
+    if(LANG === "mg"){ const o = el.dataset.frPh || el.getAttribute("placeholder"); if(MGATTR[o]){ el.dataset.frPh = o; el.setAttribute("placeholder", MGATTR[o]); } }
+    else if(el.dataset.frPh){ el.setAttribute("placeholder", el.dataset.frPh); delete el.dataset.frPh; }
+  });
+  document.documentElement.lang = LANG === "mg" ? "mg" : "fr";
+  $("#lang-fr").setAttribute("aria-pressed", LANG === "fr"); $("#lang-mg").setAttribute("aria-pressed", LANG === "mg");
+  $("#lang-note").textContent = LANG === "mg" ? "Ny lohateny sy ny bokotra lehibe ihany no nadika. Ny fanazavana lava dia mbola amin'ny teny frantsay." : "";
+  if(LANG === "mg") langObs.observe(document.body, {childList:true, subtree:true, characterData:true});
+}
+function setLang(l){ LANG = l === "mg" ? "mg" : "fr"; try{ localStorage.setItem("tirelire.lang", LANG); }catch(e){} applyLang(); toast(LANG === "mg" ? "Fiteny : Malagasy" : "Langue : français"); }
+applyLang();
+
 /* ---------- Sauvegarde ---------- */
 function lastBackup(){ try{ return Number(localStorage.getItem("tirelire.lastBackup")) || 0; }catch(e){ return 0; } }
 function backupDue(){ return MOVES.length > 0 && Date.now() - lastBackup() > 14*86400000; }
@@ -1604,6 +1793,18 @@ $("#bk-import").addEventListener("click", () => {
   try{ LocalDB.restore(txt); toast("Sauvegarde restaurée"); }catch(e){ toast("Ce texte n'est pas une sauvegarde valide"); }
 });
 
+/* ---------- Rappel du soir ---------- */
+(function(){
+  const sel = $("#rp-heure");
+  sel.innerHTML = '<option value="off">Désactivé</option>' + [17,18,19,20,21,22].map(h => `<option value="${h}">${h} h</option>`).join("");
+  function cur(){ const h = rappelHeure(); return h == null ? "off" : String(h); }
+  sel.value = cur();
+  sel.addEventListener("change", () => { try{ localStorage.setItem("tirelire.rappel", sel.value); }catch(e){} renderRappel(); toast("Rappel enregistré"); });
+  function st(){ $("#rp-state").textContent = !("Notification" in window) ? "Les notifications du téléphone ne sont pas disponibles ici : le rappel s'affiche seulement dans l'application." : Notification.permission === "granted" ? "Notifications activées (elles n'arrivent que si l'application est ouverte ou récente en arrière-plan)." : "Notifications non activées : le rappel s'affiche dans l'application."; }
+  st();
+  $("#rp-notif").addEventListener("click", async () => { try{ await Notification.requestPermission(); }catch(e){} st(); });
+})();
+
 /* ---------- Code PIN ---------- */
 function pinHash(p){ let h = 5381; const s = "tirelire|" + p; for(let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); }
 function getPin(){ try{ return localStorage.getItem("tirelire.pin") || ""; }catch(e){ return ""; } }
@@ -1626,22 +1827,40 @@ document.addEventListener("visibilitychange", () => { if(document.hidden) lockIf
 pinState(); lockIfNeeded();
 
 /* ---------- Versement automatique du reste de chaque jour ---------- */
-let sweepReady = false; const sweepDone = new Set();
+let sweepReady = false, sweeping = false, sweepAgain = false; const sweepDone = new Set();
 async function autoSweep(){
   if(!sweepReady || readOnly) return;
+  if(sweeping){ sweepAgain = true; return; }
   const t = todayStr(); if(!resteJourActif(t)) return;
-  const cur = cycleKey(t), prev = cycleKey(addDays(t, -1));
-  for(const m of (prev !== cur ? [prev, cur] : [cur])){
-    const tt = m === cur ? t : addDays(cycleEnd(m), 1);
-    for(const x of allowance(m, tt).days){
-      if(x.d >= tt || !x.pending || x.sweep <= 0 || sweepDone.has(x.d)) continue;
-      sweepDone.add(x.d);
-      try{ await addMove({type:"epargne", montant:x.sweep, note:"Reste du jour ("+dateCourte(x.d)+")", date:t, ts:Date.now(), resteJour:x.d, extra:true}); }catch(e){}
+  sweeping = true;
+  try{
+    const cur = cycleKey(t), prev = cycleKey(addDays(t, -1));
+    for(const m of (prev !== cur ? [prev, cur] : [cur])){
+      const tt = m === cur ? t : addDays(cycleEnd(m), 1);
+      const A = allowance(m, tt);
+      for(const x of A.days){
+        if(x.d >= tt || !x.pending || x.sweep <= 0 || sweepDone.has(x.d)) continue;
+        sweepDone.add(x.d);
+        try{ await addMove({type:"epargne", montant:x.sweep, note:"Reste du jour ("+dateCourte(x.d)+")", date:t, ts:Date.now(), resteJour:x.d, plafond:x.A, extra:true}); }catch(e){}
+      }
+      /* Correction : une dépense ajoutée, modifiée ou supprimée sur un jour déjà versé ajuste l'épargne */
+      for(const x of A.days){
+        if(x.d >= tt || !x.recorded) continue;
+        const rel = MOVES.filter(y => y.type === "epargne" && y.resteJour === x.d);
+        const base = rel.find(y => y.plafond != null); if(!base) continue;
+        const total = rel.reduce((a,y) => a + (Number(y.montant)||0), 0);
+        const delta = Math.max(0, Math.floor(Number(base.plafond) - x.S)) - total;
+        if(!delta) continue;
+        try{ await addMove({type:"epargne", montant:delta, note:"Correction du "+dateCourte(x.d), date:t, ts:Date.now(), resteJour:x.d, extra:true}); }catch(e){}
+      }
     }
+  } finally {
+    sweeping = false;
+    if(sweepAgain){ sweepAgain = false; autoSweep(); }
   }
 }
 let lastDay = todayStr();
-setInterval(() => { autoSweep(); if(lastDay !== todayStr()){ lastDay = todayStr(); render(); } }, 60000);
+setInterval(() => { autoSweep(); maybeNotify(); if(lastDay !== todayStr()){ lastDay = todayStr(); render(); } else renderRappel(); }, 60000);
 document.addEventListener("visibilitychange", () => { if(!document.hidden) autoSweep(); });
 
 /* ---------- Branchement ---------- */
@@ -1659,6 +1878,7 @@ db.doc("budget/settings").onSnapshot(snap => {
 db.collection("mouvements").onSnapshot(snap => { MOVES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); autoSweep(); }, handleErr);
 db.collection("creances").onSnapshot(snap => { CREANCES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); }, () => {});
 db.collection("bilans").orderBy("date","desc").limit(1).onSnapshot(snap => { BILAN = snap.empty ? null : snap.docs[0].data(); renderBilan(); }, () => {});
+db.collection("jours").onSnapshot(snap => { JOURS = {}; snap.docs.forEach(x => { JOURS[x.id] = x.data(); }); render(); autoSweep(); }, () => {});
 sweepReady = true; autoSweep();
 })();
 </script>
