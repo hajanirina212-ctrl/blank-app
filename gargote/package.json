@@ -1,0 +1,11 @@
+{
+  "name": "gargote",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestion de mini gargote : caisse, menu, dépenses, bilan (données locales)",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  }
+}
