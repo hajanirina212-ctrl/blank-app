@@ -481,7 +481,7 @@ function allowance(m, t){
     const Sd = daySpend[d] || 0;
     let sweep = 0, recorded = false, pending = false;
     if(d in recs){ sweep = recs[d]; recorded = true; }
-    else if(d < t && d >= limite && noted.has(d)){ sweep = Math.max(0, Math.floor(A - Sd)); pending = sweep > 0; }
+    else if(d < t){ sweep = Math.max(0, Math.floor(A - Sd)); pending = sweep > 0; }
     days.push({d, A, S:Sd, sweep, recorded, pending, noted:noted.has(d), ok: Sd <= A + 0.5});
     if(d < t) pool -= Sd + sweep;
   }
@@ -735,10 +735,10 @@ function serie(c){
 }
 function resteJourTxt(c){
   const A = c.AJ, hier = A.days.find(x => x.d === addDays(c.t, -1));
-  let h = `<p class="small"><b>Budget fixe du jour : ${fmt(c.dailyBase)}</b> (repas + autres dépenses, hors riz et charges fixes). Ce que tu ne dépenses pas aujourd'hui part dans ton épargne demain matin.</p>`;
+  let h = `<p class="small"><b>Budget fixe du jour : ${fmt(c.dailyBase)}</b> (repas + autres dépenses, hors riz et charges fixes). Ce que tu ne dépenses pas aujourd'hui est versé automatiquement dans ton épargne dès demain. Si tu dépasses, l'excès est retiré du budget des jours suivants.</p>`;
   if(hier){
     if(hier.recorded) h += `<p class="small muted">Reste d'hier versé dans ton épargne : <b>${fmt(hier.sweep)}</b>. Mets cet argent de côté (enveloppe épargne ou Mvola).</p>`;
-    else if(hier.pending) h += `<p class="small muted">Reste d'hier : <b>${fmt(hier.sweep)}</b>. Le point du matin l'enregistre dans ton épargne. Mets cet argent de côté.</p>`;
+    else if(hier.pending) h += `<p class="small muted">Reste d'hier : <b>${fmt(hier.sweep)}</b>. L'application l'ajoute automatiquement à ton épargne. Mets cet argent de côté.</p>`;
     else if(!hier.noted) h += `<p class="small muted">Rien n'est noté hier : note tes dépenses d'hier pour que le reste puisse aller dans l'épargne.</p>`;
   }
   return h;
@@ -749,6 +749,7 @@ function renderToday(c){
     <span class="eyebrow">${esc(longDate(c.t))}</span>
     <p class="muted small">${neg ? "Dépassement du budget du jour" : "Tu peux encore dépenser aujourd'hui"}</p>
     <p class="today-big ${neg?"neg":""}">${fmt(Math.abs(c.leftToday))}</p>
+    ${c.AJ && neg && c.AJ.left > 1 ? (() => { const A = c.AJ; const nx = Math.max(0, A.pool - (A.today ? A.today.S : 0)) / (A.left - 1); return `<p class="small" style="color:var(--bad)"><b>Ce dépassement de ${fmt(-c.leftToday)} est réparti sur les ${A.left - 1} jours restants</b> : ton budget passe de ${fmt(c.dailyBase)} à ${fmt(nx)} par jour dès demain.</p>`; })() : ""}
     ${(() => {
       const sr = serie(c);
       if(!sr.jours.length) return `<div class="row"><span class="pill neutral">Série : commence aujourd'hui</span><span class="small muted">Tiens ton budget du jour pour lancer ta série.</span></div>`;
@@ -1528,6 +1529,7 @@ $("#reglages").addEventListener("submit", async ev => {
   S.laokas = draftLaokas.filter(l => (l.nom||"").trim()).map((l,i) => ({id:l.id || ("l"+Date.now().toString(36)+i), nom:l.nom.trim(), detail:(l.detail||"").trim(), prix:Number(l.prix)||0}));
   S.jourPaie = Math.min(28, Math.max(1, toNum($("#r-paie").value) || 1));
   S.categories = draftCats.map(c => { const o = {id:c.id, nom:(c.nom||"").trim() || "Sans nom", budget:Number(c.budget)||0, type:TYPES[c.type] ? c.type : "libre"}; if(/^\d{4}-\d{2}$/.test(c.fin||"")){ o.fin = c.fin; o.versEpargne = !!c.versEpargne; } if(/^\d{4}-\d{2}$/.test(c.debut||"")) o.debut = c.debut; if(c.progressif){ o.progressif = true; } if(c.note) o.note = c.note; if(c.source) o.source = c.source; o.unique = !!c.unique; ["nomCourt","gainSiRepousse","gainExplication"].forEach(f => { if(c[f] != null) o[f] = c[f]; }); return o; });
+  if(!(S.resteJour && S.resteJour.depuis)) S.resteJour = Object.assign({}, S.resteJour, {depuis: todayStr()});
   reglagesDirty = false;
   await saveSettings("Réglages enregistrés");
 });
@@ -1623,6 +1625,25 @@ $("#pin-off").addEventListener("click", () => { try{ localStorage.removeItem("ti
 document.addEventListener("visibilitychange", () => { if(document.hidden) lockIfNeeded(); });
 pinState(); lockIfNeeded();
 
+/* ---------- Versement automatique du reste de chaque jour ---------- */
+let sweepReady = false; const sweepDone = new Set();
+async function autoSweep(){
+  if(!sweepReady || readOnly) return;
+  const t = todayStr(); if(!resteJourActif(t)) return;
+  const cur = cycleKey(t), prev = cycleKey(addDays(t, -1));
+  for(const m of (prev !== cur ? [prev, cur] : [cur])){
+    const tt = m === cur ? t : addDays(cycleEnd(m), 1);
+    for(const x of allowance(m, tt).days){
+      if(x.d >= tt || !x.pending || x.sweep <= 0 || sweepDone.has(x.d)) continue;
+      sweepDone.add(x.d);
+      try{ await addMove({type:"epargne", montant:x.sweep, note:"Reste du jour ("+dateCourte(x.d)+")", date:t, ts:Date.now(), resteJour:x.d, extra:true}); }catch(e){}
+    }
+  }
+}
+let lastDay = todayStr();
+setInterval(() => { autoSweep(); if(lastDay !== todayStr()){ lastDay = todayStr(); render(); } }, 60000);
+document.addEventListener("visibilitychange", () => { if(!document.hidden) autoSweep(); });
+
 /* ---------- Branchement ---------- */
 db = LocalDB;
 db.doc("budget/settings").onSnapshot(snap => {
@@ -1635,9 +1656,10 @@ db.doc("budget/settings").onSnapshot(snap => {
   } else { S = clone(DEFAULTS); settingsExists = false; }
   render();
 }, handleErr);
-db.collection("mouvements").onSnapshot(snap => { MOVES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); }, handleErr);
+db.collection("mouvements").onSnapshot(snap => { MOVES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); autoSweep(); }, handleErr);
 db.collection("creances").onSnapshot(snap => { CREANCES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); }, () => {});
 db.collection("bilans").orderBy("date","desc").limit(1).onSnapshot(snap => { BILAN = snap.empty ? null : snap.docs[0].data(); renderBilan(); }, () => {});
+sweepReady = true; autoSweep();
 })();
 </script>
 
