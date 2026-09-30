@@ -1,0 +1,1645 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tirelire Ariary</title>
+<style>
+:root{
+  --bg:#EDF1EE; --surface:#FFFFFF; --surface-2:#E2E9E4; --ink:#14201A; --ink-2:#4B5B52; --line:#D2DCD5;
+  --accent:#0E7458; --accent-ink:#FFFFFF; --accent-soft:#D4ECE2;
+  --ok:#1C8753; --ok-soft:#DCF0E3; --warn:#A96E14; --warn-soft:#F6E8CC; --bad:#BD3F29; --bad-soft:#F7DCD5;
+  --shadow:0 1px 2px rgba(20,32,26,.06),0 6px 20px rgba(20,32,26,.05);
+  --display:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1411; --surface:#15201A; --surface-2:#1D2A23; --ink:#E2EAE5; --ink-2:#9CAFA4; --line:#293730;
+    --accent:#3DBA91; --accent-ink:#05110C; --accent-soft:#15382C;
+    --ok:#4CC486; --ok-soft:#163324; --warn:#E2AB4C; --warn-soft:#382C15; --bad:#EE7B64; --bad-soft:#3E201A;
+    --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1411; --surface:#15201A; --surface-2:#1D2A23; --ink:#E2EAE5; --ink-2:#9CAFA4; --line:#293730;
+  --accent:#3DBA91; --accent-ink:#05110C; --accent-soft:#15382C;
+  --ok:#4CC486; --ok-soft:#163324; --warn:#E2AB4C; --warn-soft:#382C15; --bad:#EE7B64; --bad-soft:#3E201A;
+  --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:580px;margin:0 auto;padding-inline:16px;padding-block:14px 72px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.muted{color:var(--ink-2)}
+.small{font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+
+/* Bandeau exemple */
+.note{border-radius:12px;padding:10px 12px;font-size:13px;background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.note b{color:var(--warn)}
+
+/* Hero objectif */
+.hero{background:var(--accent);color:var(--accent-ink);border-radius:20px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.hero .eyebrow{color:color-mix(in srgb,var(--accent-ink) 75%,transparent)}
+.hero h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,6vw,28px);line-height:1.15;letter-spacing:-.01em}
+.hero .why{font-size:14px;opacity:.9;font-style:italic}
+.gauge{height:14px;border-radius:99px;background:color-mix(in srgb,var(--accent-ink) 22%,transparent);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--accent-ink);border-radius:99px;transition:width .5s ease}
+.hero-figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hero-figs div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hero-figs b{font-family:var(--display);font-weight:500;font-size:14.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hero-figs span{font-size:11.5px;opacity:.8}
+.hero .status{align-self:flex-start;font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:99px;background:color-mix(in srgb,var(--accent-ink) 16%,transparent)}
+.saved-line{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.saved-line strong{font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Onglets */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--surface-2);border-radius:14px}
+.tabs button{appearance:none;border:0;background:transparent;color:var(--ink-2);font:600 13px var(--body);padding:9px 4px;border-radius:10px;cursor:pointer;position:relative}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.tabs .dot{position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Chiffre du jour */
+.today-big{font-family:var(--display);font-weight:700;font-size:clamp(30px,9vw,40px);line-height:1.05;font-variant-numeric:tabular-nums}
+.today-big.neg{color:var(--bad)}
+
+/* Formulaire */
+label{font-size:12.5px;font-weight:700;color:var(--ink-2);display:flex;flex-direction:column;gap:5px}
+input,select,textarea{font:500 15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+textarea{resize:vertical;min-height:64px}
+.amount{font-family:var(--display);font-size:22px;font-weight:500;padding:12px 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface-2);border-radius:12px}
+.seg button{appearance:none;border:0;background:transparent;font:700 14px var(--body);color:var(--ink-2);padding:8px;border-radius:9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 13px var(--body);padding:7px 11px;border-radius:99px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 14px var(--body);padding:11px 14px;border-radius:12px;cursor:pointer}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.btn-sm{padding:6px 10px;font-size:12.5px;border-radius:9px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+/* Catégories */
+.cat{display:flex;flex-direction:column;gap:6px;padding-block:10px;border-top:1px solid var(--line)}
+.cat:first-child{border-top:0;padding-top:0}
+.cat-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cat-head b{font-weight:700;font-size:14.5px}
+.cat-head span{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+.bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+.pill{font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.neutral{background:var(--surface-2);color:var(--ink-2)}
+
+.alert{border-radius:14px;padding:12px 14px;background:var(--bad-soft);border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);display:flex;flex-direction:column;gap:8px}
+.alert b{color:var(--bad)}
+
+/* Plans */
+.plan{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.plan.best{border:2px solid var(--accent)}
+.plan h3{font-size:15.5px;font-weight:800}
+.plan ul{margin:0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:2px}
+.tag{align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);padding:3px 8px;border-radius:6px}
+
+/* Menu */
+.meal{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:start;padding-block:10px;border-top:1px dashed var(--line)}
+.meal:first-of-type{border-top:0}
+.meal .when{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-top:2px}
+.meal .price{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Détail des calculs */
+.calc{font-size:13px}
+.calc summary{cursor:pointer;font-weight:700;color:inherit;opacity:.85;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.calc summary::-webkit-details-marker{display:none}
+.calc summary::before{content:"+";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;font-size:13px;line-height:1}
+.calc[open] summary::before{content:"−"}
+.calc .box{margin-top:8px;display:flex;flex-direction:column;gap:2px}
+.calc .ln{display:flex;justify-content:space-between;gap:12px;padding-block:3px;font-variant-numeric:tabular-nums}
+.calc .ln span:last-child{white-space:nowrap;font-weight:600}
+.calc .ln.tot{border-top:1px solid currentColor;margin-top:4px;padding-top:6px;font-weight:800}
+.calc .ln.sub{opacity:.75;font-size:12.5px;padding-left:10px}
+.calc p{margin-top:6px;opacity:.85}
+.hero .calc .ln.tot{border-top-color:color-mix(in srgb,var(--accent-ink) 40%,transparent)}
+.gap{background:color-mix(in srgb,var(--accent-ink) 12%,transparent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.gap ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.gap .btn{align-self:flex-start;background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.gap.marge{background:color-mix(in srgb,var(--accent-ink) 9%,transparent)}
+.card.urgent{border:2px solid var(--accent)}
+.cr-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.split .ln{border-bottom:1px dashed var(--line);padding-block:7px}
+.split .ln:last-child{border-bottom:0}
+
+/* Planning laoka */
+.week{width:100%;border-collapse:collapse;font-size:13px;min-width:320px}
+.week th{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);text-align:left;padding:6px 6px 6px 0;border-bottom:1px solid var(--line)}
+.week td{padding:7px 6px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.week td:first-child{text-transform:capitalize;color:var(--ink-2);white-space:nowrap}
+.week .r{text-align:right;padding-right:0;white-space:nowrap}
+.week tr.now td{font-weight:800;color:var(--ink)}
+.week tfoot td{font-weight:800;border-bottom:0}
+details summary{list-style-position:inside}
+
+/* Mindset */
+.mind{padding:12px 14px;border-radius:12px;background:var(--surface-2);display:flex;flex-direction:column;gap:4px}
+.mind b{font-size:14.5px}
+.mind p{font-size:13.5px;color:var(--ink-2)}
+
+/* Historique */
+.hist-day{display:flex;flex-direction:column;gap:2px}
+.hist-day h3{font-size:12.5px;font-weight:800;color:var(--ink-2);text-transform:capitalize;padding-block:8px 4px}
+.hist-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding-block:8px;border-top:1px solid var(--line)}
+.hist-item .amt{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hist-item .amt.ep{color:var(--ok)}
+.x{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink-2);border-radius:8px;padding:4px 8px;font:700 12px var(--body);cursor:pointer;white-space:nowrap}
+.x.confirm{background:var(--bad);color:#fff;border-color:var(--bad)}
+.ex{font-size:10.5px;font-weight:800;color:var(--warn);background:var(--warn-soft);padding:1px 6px;border-radius:5px;margin-left:6px}
+
+/* Réglages */
+.cat-edit{display:grid;grid-template-columns:1fr 110px;gap:8px;padding-block:10px;border-top:1px solid var(--line)}
+.cat-edit:first-child{border-top:0}
+.cat-edit .full{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+.cat-edit .full select{flex:1}
+
+.bilan{border-left:4px solid var(--accent);padding-left:12px;display:flex;flex-direction:column;gap:6px}
+.bilan p{white-space:pre-line;font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:700;font-size:14px;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px);text-align:center;z-index:20}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:380px){.hero-figs{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+.lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+.lock .box{width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;text-align:center}
+.lock input{text-align:center;font-size:26px;letter-spacing:.4em}
+.lock .err{color:var(--bad);font-weight:700;min-height:1.2em;font-size:13px}
+</style>
+
+<div class="wrap">
+  <div id="demo-note" class="note" hidden></div>
+  <section id="hero" class="hero" aria-live="polite"></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-jour" data-tab="jour">Aujourd'hui</button>
+    <button role="tab" id="tab-secours" data-tab="secours">Plan B</button>
+    <button role="tab" id="tab-histo" data-tab="histo">Historique</button>
+    <button role="tab" id="tab-reglages" data-tab="reglages">Réglages</button>
+  </nav>
+
+  <!-- AUJOURD'HUI -->
+  <section id="t-jour" class="stack">
+    <div id="reste" class="card urgent" hidden></div>
+    <div id="today" class="card"></div>
+    <div id="split" class="card"></div>
+
+    <div id="cr-card" class="card">
+      <div class="row between"><h2 class="eyebrow">Argent qu'on te doit</h2><span id="cr-sum" class="pill neutral num"></span></div>
+      <p class="small muted">Il ne compte ni dans ton budget ni dans ton épargne tant que tu ne l'as pas reçu. Le jour du remboursement, verse-le entièrement dans l'épargne.</p>
+      <div id="cr-list"></div>
+      <div class="grid2">
+        <label for="cr-montant">Montant (Ariary)<input id="cr-montant" inputmode="numeric" placeholder="ex. 20 000"></label>
+        <label for="cr-date">Remboursement prévu<input id="cr-date" type="date"></label>
+      </div>
+      <label for="cr-note">Qui, pourquoi (facultatif)<input id="cr-note" placeholder="ex. prêt à un ami"></label>
+      <button type="button" class="btn" id="cr-add" style="align-self:flex-start">Ajouter une créance</button>
+    </div>
+
+    <form id="add" class="card" autocomplete="off">
+      <div class="row between"><h2 class="eyebrow">Noter un mouvement</h2></div>
+      <div class="seg" role="group" aria-label="Type de mouvement">
+        <button type="button" id="type-dep" data-type="depense" aria-pressed="true">Dépense</button>
+        <button type="button" id="type-ep" data-type="epargne" aria-pressed="false">Épargne</button>
+      </div>
+      <label for="f-montant">Montant (Ariary)
+        <input id="f-montant" class="amount" inputmode="numeric" placeholder="ex. 15 000" required>
+      </label>
+      <div id="chips-wrap" class="stack" style="gap:6px">
+        <span class="eyebrow">Catégorie</span>
+        <div id="chips" class="chips"></div>
+      </div>
+      <p id="f-hint" class="small" hidden></p>
+      <div class="grid2">
+        <label for="f-note">Note (facultatif)<input id="f-note" placeholder="ex. marché Analakely"></label>
+        <label for="f-date">Date<input id="f-date" type="date"></label>
+      </div>
+      <button class="btn btn-primary" id="f-submit" type="submit">Ajouter la dépense</button>
+    </form>
+
+    <div class="card">
+      <div class="row between"><h2 class="eyebrow" id="cats-title">Budgets du mois</h2><span id="cats-sum" class="small muted num"></span></div>
+      <div id="cats"></div>
+    </div>
+
+    <div id="bilan" class="card"></div>
+  </section>
+
+  <!-- PLAN B -->
+  <section id="t-secours" class="stack" hidden>
+    <div id="plan" class="card"></div>
+    <div id="menu" class="card"></div>
+    <div id="mindset" class="card"></div>
+    <div class="card">
+      <h2 class="eyebrow">Et si je dépense…</h2>
+      <label for="sim">Montant d'un achat non prévu
+        <input id="sim" class="amount" inputmode="numeric" placeholder="ex. 50 000">
+      </label>
+      <p id="sim-out" class="small muted">Tape un montant pour voir ce qu'il coûte en jours d'objectif.</p>
+    </div>
+  </section>
+
+  <!-- HISTORIQUE -->
+  <section id="t-histo" class="stack" hidden>
+    <div class="card">
+      <div class="row between">
+        <h2 class="eyebrow">Mouvements</h2>
+        <select id="h-mois" style="width:auto" aria-label="Mois affiché"></select>
+      </div>
+      <div id="histo"></div>
+    </div>
+    <div id="ex-card" class="card" hidden>
+      <h2 class="eyebrow">Données d'exemple</h2>
+      <p class="small muted">Les lignes marquées « exemple » servent à montrer le fonctionnement. Efface-les avant de noter tes vraies dépenses.</p>
+      <button type="button" class="btn btn-danger" id="ex-clear">Effacer les exemples</button>
+    </div>
+  </section>
+
+  <!-- RÉGLAGES -->
+  <section id="t-reglages" class="stack" hidden>
+    <form id="reglages" class="stack" autocomplete="off"></form>
+    <div class="card" id="sauvegarde">
+      <h2 class="eyebrow">Sauvegarde</h2>
+      <p class="small muted">Tes données sont gardées sur ce téléphone, sans internet. Fais une sauvegarde de temps en temps : sans elle, désinstaller l'application efface tout.</p>
+      <div class="row">
+        <button type="button" class="btn" id="bk-export">Exporter (fichier + texte)</button>
+        <button type="button" class="btn" id="bk-copy">Copier le texte</button>
+      </div>
+      <label for="bk-text">Texte de sauvegarde (à copier pour la garder, ou à coller pour restaurer)
+        <textarea id="bk-text" rows="4" placeholder="Appuie sur Exporter, ou colle ici une sauvegarde puis Restaurer"></textarea>
+      </label>
+      <button type="button" class="btn btn-danger" id="bk-import" style="align-self:flex-start">Restaurer cette sauvegarde</button>
+    </div>
+    <div class="card" id="pin-card">
+      <h2 class="eyebrow">Code PIN</h2>
+      <p class="small muted" id="pin-state"></p>
+      <label for="pin-new">Nouveau code (4 à 6 chiffres)<input id="pin-new" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+      <div class="row">
+        <button type="button" class="btn btn-primary" id="pin-set">Enregistrer le code</button>
+        <button type="button" class="btn" id="pin-off">Retirer le code</button>
+      </div>
+      <p class="small muted">Verrou simple contre les curieux. Il n'est pas chiffré : garde aussi une sauvegarde.</p>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast" role="status"></div>
+<div id="lock" class="lock" hidden>
+  <div class="box">
+    <h1 style="font-family:var(--display);font-size:22px">Tirelire Ariary</h1>
+    <p class="muted small">Entre ton code PIN</p>
+    <input id="lock-in" type="password" inputmode="numeric" maxlength="6" autocomplete="off" aria-label="Code PIN">
+    <p class="err" id="lock-err" role="alert"></p>
+    <button type="button" class="btn btn-primary" id="lock-ok">Ouvrir</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Réglages par défaut (utilisés si rien n'est encore enregistré) ---------- */
+const DEFAULTS = {
+  objectif:{nom:"Mon objectif d'épargne", montant:1000000, echeance:"2027-03-31"},
+  pourquoi:"Écris ici pourquoi cet objectif compte pour toi.",
+  dejaEpargne:0, revenuMensuel:800000, epargneMensuelle:150000,
+  minAlimJour:3400, repasParJour:2, jourPaie:1,
+  riz:{stockKg:6, depuis:"2026-09-28", joursParKg:3, prixKg:4000},
+  laokas:[
+    {id:"cas1", nom:"Atody sy legioma", detail:"Œufs 800 + légumes 1 000 + tomates et oignons 500", prix:2300},
+    {id:"cas2", nom:"Hena", detail:"Viande 3 000", prix:3000},
+    {id:"cas3", nom:"Anana sy patsa", detail:"Brèdes 500 + patsa 500 + angivy 500 + tomates 200", prix:1700},
+    {id:"cas4", nom:"Kitoza sy legioma", detail:"Légumes 500 + kitoza 2 000", prix:2500},
+    {id:"cas5", nom:"Lasopy sy kitoza", detail:"Soupe 1 000 + atody 1 600 + kitoza 2 000 + sakamalaho 200 + tongolo lay 200", prix:5000}
+  ],
+  categories:[
+    {id:"alim",nom:"Alimentation",budget:180000,type:"reductible"},
+    {id:"transport",nom:"Transport",budget:60000,type:"reductible"},
+    {id:"logement",nom:"Loyer & factures",budget:250000,type:"fixe"},
+    {id:"tel",nom:"Crédit & internet",budget:30000,type:"reductible"},
+    {id:"loisirs",nom:"Sorties & loisirs",budget:40000,type:"libre"},
+    {id:"imprevus",nom:"Imprévus",budget:70000,type:"fixe"}
+  ],
+  ajustement:null, report:null, exemple:false
+};
+const TYPES = {libre:"Libre (peut être coupé)", reductible:"Réductible (jusqu'à 50 %)", fixe:"Fixe (on n'y touche pas)"};
+
+/* ---------- État ---------- */
+let S = clone(DEFAULTS);
+let settingsExists = false;
+let MOVES = [];
+let BILAN = null;
+let db = null;
+let readOnly = false;
+let tab = "jour";
+try{ tab = localStorage.getItem("tirelire.tab") || "jour"; }catch(e){}
+if(!["jour","secours","histo","reglages"].includes(tab)) tab = "jour";
+let formType = "depense", formCat = null, menuShift = 0, pendingDel = null, histMonth = null;
+let reglagesDirty = false, draftCats = null, draftLaokas = null;
+let CREANCES = [], pendingCr = null, pendingSweep = false;
+
+/* ---------- Utilitaires ---------- */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function fmt(n){ n = Math.round(n || 0); return n.toLocaleString("fr-FR").replace(/[  ]/g," ") + " Ar"; }
+function iso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function todayStr(){ return iso(new Date()); }
+function parseD(s){ const p = String(s).split("-").map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||1); }
+function addDays(s,n){ const d = parseD(s); d.setDate(d.getDate()+Math.round(n)); return iso(d); }
+function daysBetween(a,b){ return Math.round((parseD(b)-parseD(a))/86400000); }
+function daysInMonth(m){ const p = m.split("-").map(Number); return new Date(p[0], p[1], 0).getDate(); }
+function nextMonth(m){ const p = m.split("-").map(Number); const d = new Date(p[0], p[1], 1); return iso(d).slice(0,7); }
+const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+function monthLabel(m){ const p = m.split("-").map(Number); return MOIS[p[1]-1]+" "+p[0]; }
+/* Cycle budgétaire : du jour de paie au veille du suivant. La clé "AAAA-MM" est le mois où le cycle commence. */
+function jourPaie(){ return Math.min(28, Math.max(1, Number(S.jourPaie)||1)); }
+function cycleKey(ds){ const d = parseD(ds); let y = d.getFullYear(), mo = d.getMonth(); if(d.getDate() < jourPaie()){ mo -= 1; if(mo < 0){ mo = 11; y -= 1; } } return y+"-"+String(mo+1).padStart(2,"0"); }
+function cycleStart(k){ const p = k.split("-").map(Number); return iso(new Date(p[0], p[1]-1, jourPaie())); }
+function cycleEnd(k){ return addDays(cycleStart(nextMonth(k)), -1); }
+function cycleLen(k){ return daysBetween(cycleStart(k), cycleStart(nextMonth(k))); }
+function inCycle(ds, k){ return !!ds && ds >= cycleStart(k) && ds <= cycleEnd(k); }
+function cycleLabel(k){
+  if(jourPaie() === 1) return monthLabel(k);
+  const o = {day:"numeric", month:"short"};
+  return "du " + parseD(cycleStart(k)).toLocaleDateString("fr-FR", o) + " au " + parseD(cycleEnd(k)).toLocaleDateString("fr-FR", o);
+}
+function actif(c, k){ return !(c.debut && k < c.debut) && !(c.fin && k > c.fin); }
+function cyclesEntre(a, b){ const pa = a.split("-").map(Number), pb = b.split("-").map(Number); return (pb[0]-pa[0])*12 + (pb[1]-pa[1]); }
+/* Épargne prévue pour un cycle : épargne de base + postes terminés (ex. dette) redirigés vers l'épargne */
+function epargneDuCycle(k){
+  if(S.epargnePrevue && S.epargnePrevue[k] != null) return Number(S.epargnePrevue[k])||0;
+  let e = Number(S.epargneMensuelle)||0;
+  S.categories.forEach(c => { if(c.fin && c.versEpargne && k > c.fin) e += Number(c.budget)||0; });
+  return e;
+}
+function longDate(s){ return parseD(s).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}); }
+function shortDate(s){ return parseD(s).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}); }
+function toNum(v){ const n = Number(String(v).replace(/[^\d-]/g,"")); return isFinite(n) ? n : 0; }
+function catById(id){ return S.categories.find(c => c.id === id); }
+/* Une dépense « une seule fois » se paie en totalité, jamais en plusieurs morceaux */
+function isUnique(k){ return k && (k.unique != null ? !!k.unique : (k.type === "fixe" && !k.progressif)); }
+let pendingPay = null, payTimer = null;
+function armPay(id){ pendingPay = id; clearTimeout(payTimer); payTimer = setTimeout(() => { pendingPay = null; render(); }, 8000); }
+function disarmPay(){ pendingPay = null; clearTimeout(payTimer); }
+function catName(id){ const c = catById(id); return c ? c.nom : "Autre"; }
+function dayOfYear(){ const d = new Date(); return Math.floor((d - new Date(d.getFullYear(),0,0))/86400000); }
+let toastT;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"), 2600); }
+function rythmeJour(){
+  // Rythme d'épargne réel : moyenne de ce qui est prévu aux 3 prochaines paies
+  let k = cycleKey(todayStr()), tot = 0;
+  for(let i = 0; i < 3; i++){ k = nextMonth(k); tot += epargneDuCycle(k); }
+  const moy = tot/3 || (Number(S.epargneMensuelle)||0);
+  return moy/30.44;
+}
+function joursPour(x){ const r = rythmeJour(); return r > 0 ? x/r : null; }
+function joursTxt(j){ if(j == null) return "—"; const n = Math.max(1, Math.round(j)); return n+" jour"+(n>1?"s":""); }
+
+/* ---------- Budgets effectifs ---------- */
+function cuttableFor(cat, rem, daysLeft){
+  if(rem <= 0) return 0;
+  if(cat.id === "alim") return Math.max(0, rem - minRepasJour()*daysLeft);
+  if(cat.type === "libre") return rem;
+  if(cat.type === "reductible") return rem*0.5;
+  return 0;
+}
+function budgetsFor(m, sansRestes){
+  const b = {};
+  S.categories.forEach(c => b[c.id] = actif(c, m) ? (Number(c.budget)||0) : 0);
+  // Budget particulier pour un cycle donné (ex. premier cycle démarré en cours de route)
+  if(S.budgetCycle && S.budgetCycle[m]){ const o = S.budgetCycle[m]; for(const k in o){ if(k in b) b[k] = Number(o[k])||0; } }
+  if(S.report && S.report.mois === m && S.report.montant > 0){
+    const dim = cycleLen(m); const caps = {}; let tot = 0;
+    S.categories.forEach(c => { const v = cuttableFor(c, b[c.id], dim); caps[c.id] = v; tot += v; });
+    if(tot > 0){ const r = Math.min(S.report.montant, tot); S.categories.forEach(c => { b[c.id] = Math.round(b[c.id] - r*caps[c.id]/tot); }); }
+  }
+  if(S.ajustement && S.ajustement.mois === m && S.ajustement.limites){
+    for(const k in S.ajustement.limites){ if(k in b) b[k] = Number(S.ajustement.limites[k])||0; }
+  }
+  // Restes (du jour ou de fin de cycle) déjà versés à l'épargne : retirés des enveloppes
+  if(!sansRestes) restesDuCycle(m).forEach(x => { for(const k in x.detail){ if(k in b) b[k] = Math.max(0, b[k] - (Number(x.detail[k])||0)); } });
+  return b;
+}
+function restesDuCycle(m){ return MOVES.filter(x => x.type === "epargne" && x.detail && (x.reste === m || (x.resteJour && inCycle(x.resteJour, m)))); }
+function totalRestes(m){ return restesDuCycle(m).reduce((a,x) => a + (Number(x.montant)||0), 0); }
+/* Enveloppes dont le reste part à l'épargne en fin de cycle (jamais l'alimentation).
+   Avec le reste du jour actif, les dépenses du quotidien sont déjà versées chaque jour : il ne reste que les imprévus. */
+function sweepCats(){ return S.categories.filter(k => k.id !== "alim" && (k.id === "imprevus" || (k.type === "libre" && !resteJourActif(todayStr())))); }
+function sweepOf(m){ return MOVES.find(x => x.type === "epargne" && x.reste === m) || null; }
+
+/* ---------- Reste du jour vers l'épargne ----------
+   Budget fixe du jour = (argent du quotidien restant, riz mis à part) ÷ jours restants.
+   Ce qui n'est pas dépensé un jour est versé à l'épargne le lendemain matin par le point du matin. */
+function resteJourActif(t){ return !!(S.resteJour && S.resteJour.depuis && t >= S.resteJour.depuis); }
+function isRiz(x){ return x.cat === "alim" && /^riz\b/i.test(String(x.note || "").trim()); }
+function rizReserve(m){
+  const r = S.resteJour && S.resteJour.rizReserve;
+  if(r && r[m] != null) return Number(r[m])||0;
+  if(!S.riz || !(Number(S.riz.prixKg) > 0)) return 0;
+  return Math.ceil(cycleLen(m)/Math.max(0.5, Number(S.riz.joursParKg)||3)*Number(S.riz.prixKg)/1000)*1000;
+}
+function allowance(m, t){
+  const base = budgetsFor(m, true);
+  const vars = S.categories.filter(k => k.type !== "fixe");
+  const ids = new Set(vars.map(k => k.id));
+  const R = catById("alim") ? Math.min(rizReserve(m), base.alim||0) : 0;
+  const ce = cycleEnd(m);
+  const A0 = S.argentCycle && S.argentCycle[m];
+  let start = cycleStart(m);
+  if(A0 && A0.date && inCycle(A0.date, m) && A0.date > start) start = A0.date;
+  if(S.resteJour.depuis > start) start = S.resteJour.depuis;
+  const daySpend = {}; let rizUsed = 0, before = 0;
+  MOVES.filter(x => x.type === "depense" && ids.has(x.cat) && inCycle(x.date, m))
+    .sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts||0) - (b.ts||0))
+    .forEach(x => {
+      let a = Number(x.montant)||0;
+      if(isRiz(x)){ const use = Math.max(0, Math.min(a, R - rizUsed)); rizUsed += use; a -= use; }
+      if(a <= 0) return;
+      if(x.date < start) before += a; else daySpend[x.date] = (daySpend[x.date]||0) + a;
+    });
+  const recs = {};
+  MOVES.forEach(x => { if(x.type === "epargne" && x.resteJour && inCycle(x.resteJour, m)) recs[x.resteJour] = (recs[x.resteJour]||0) + (Number(x.montant)||0); });
+  const noted = new Set(MOVES.filter(x => x.type === "depense").map(x => x.date));
+  let pool = vars.reduce((a,k) => a + (base[k.id]||0), 0) - R - before;
+  const limite = addDays(t, -3), days = [];
+  for(let d = start; d <= t && d <= ce; d = addDays(d, 1)){
+    const A = Math.max(0, pool)/(daysBetween(d, ce) + 1);
+    const Sd = daySpend[d] || 0;
+    let sweep = 0, recorded = false, pending = false;
+    if(d in recs){ sweep = recs[d]; recorded = true; }
+    else if(d < t && d >= limite && noted.has(d)){ sweep = Math.max(0, Math.floor(A - Sd)); pending = sweep > 0; }
+    days.push({d, A, S:Sd, sweep, recorded, pending, noted:noted.has(d), ok: Sd <= A + 0.5});
+    if(d < t) pool -= Sd + sweep;
+  }
+  const today = days.length && days[days.length-1].d === t ? days[days.length-1] : null;
+  return {R, rizUsed, start, days, today, pool:Math.max(0,pool), left: daysBetween(t, ce) + 1};
+}
+function creancesAttendues(){ return CREANCES.filter(x => x.statut !== "recue"); }
+
+/* ---------- Calculs ---------- */
+function compute(){
+  const t = todayStr(), m = cycleKey(t);
+  const dim = cycleLen(m), day = daysBetween(cycleStart(m), t) + 1, daysLeft = daysBetween(t, cycleEnd(m)) + 1;
+  const bud = budgetsFor(m);
+  const spent = {}, before = {};
+  S.categories.forEach(c => { spent[c.id] = 0; before[c.id] = 0; });
+  let depMois = 0, epMois = 0, depToday = 0, autres = 0;
+  MOVES.forEach(x => {
+    if(!inCycle(x.date, m)) return;
+    const a = Number(x.montant)||0;
+    // Les versements en plus (restes, créances) ne remplacent pas l'épargne prévue du mois
+    if(x.type === "epargne"){ if(!x.extra) epMois += a; return; }
+    depMois += a;
+    if(x.cat in spent){ spent[x.cat] += a; if(x.date < t) before[x.cat] += a; } else autres += a;
+    if(x.date === t) depToday += a;
+  });
+  let totalBud = 0; S.categories.forEach(c => totalBud += bud[c.id]);
+  // Budget du quotidien : catégories non fixes
+  let varPool = 0, varToday = 0;
+  S.categories.forEach(c => {
+    if(c.type === "fixe") return;
+    varPool += Math.max(0, bud[c.id] - before[c.id]);
+    varToday += spent[c.id] - before[c.id];
+  });
+  let dailyBase = varPool / daysLeft;
+  let leftToday = dailyBase - varToday;
+  let AJ = null;
+  if(resteJourActif(t)){
+    AJ = allowance(m, t);
+    if(AJ.today){ dailyBase = AJ.today.A; leftToday = AJ.today.A - AJ.today.S; }
+  }
+  const over = [];
+  let D = 0;
+  S.categories.forEach(c => { const e = spent[c.id] - bud[c.id]; if(e > 0){ over.push({cat:c, exces:e}); D += e; } });
+  if(autres > 0){ over.push({cat:{id:"_autre",nom:"Autre / catégorie supprimée"}, exces:autres}); D += autres; }
+  // Objectif
+  let totEp = 0; MOVES.forEach(x => { if(x.type === "epargne") totEp += Number(x.montant)||0; });
+  const saved = (Number(S.dejaEpargne)||0) + totEp;
+  const target = Number(S.objectif.montant)||0;
+  const reste = Math.max(0, target - saved);
+  const pct = target > 0 ? Math.min(100, saved/target*100) : 0;
+  const joursRest = daysBetween(t, S.objectif.echeance);
+  const moisRest = Math.max(joursRest/30.44, 0.25);
+  const requis = reste / moisRest;
+  // Projection cycle par cycle : reste de l'épargne prévue ce cycle, puis chaque jour de paie
+  let projection = null;
+  const echeancier = [];   // versements prévus : {date, label, montant, cumul}
+  let accEch = 0;          // épargne ajoutée d'ici l'échéance
+  if(reste <= 0) projection = t;
+  else {
+    const now = Math.max(0, epargneDuCycle(m) - epMois);
+    let acc = now, k = m;
+    if(now > 0){ echeancier.push({date:t, label:"Ce mois-ci (pas encore versé)", montant:now, cumul:saved+acc}); if(t <= S.objectif.echeance) accEch += now; }
+    if(acc >= reste) projection = t;
+    for(let i = 0; i < 240 && !projection; i++){
+      k = nextMonth(k); const e = epargneDuCycle(k);
+      if(e <= 0 && i > 24) break;
+      acc += e;
+      if(i < 36) echeancier.push({date:cycleStart(k), label:"Paie du "+dateCourte(cycleStart(k)), montant:e, cumul:saved+acc});
+      if(cycleStart(k) <= S.objectif.echeance) accEch += e;
+      if(acc >= reste) projection = cycleStart(k);
+    }
+  }
+  const manque = Math.max(0, reste - accEch);
+  let statut;
+  if(reste <= 0) statut = "atteint";
+  else if(joursRest <= 0) statut = "echu";
+  else if(projection && projection <= S.objectif.echeance) statut = "ok";
+  else statut = "retard";
+  return {t, m, dim, day, daysLeft, bud, spent, before, depMois, epMois, depToday, totalBud, dailyBase, leftToday, over, D, saved, target, reste, pct, joursRest, requis, projection, statut, echeancier, accEch, manque, AJ};
+}
+
+function plans(c){
+  if(c.D <= 0) return null;
+  const caps = {}; let cap = 0;
+  S.categories.forEach(k => { const v = cuttableFor(k, c.bud[k.id] - c.spent[k.id], c.daysLeft); caps[k.id] = v; cap += v; });
+  function limitesFor(amount){
+    const L = {}; const f = cap > 0 ? Math.min(1, amount/cap) : 0;
+    S.categories.forEach(k => {
+      const s = c.spent[k.id], b = c.bud[k.id];
+      if(s > b) L[k.id] = s;
+      else if(caps[k.id] > 0 && f > 0) L[k.id] = Math.round(b - caps[k.id]*f);
+    });
+    return L;
+  }
+  function dailyAfter(L){
+    let pool = 0;
+    S.categories.forEach(k => { if(k.type === "fixe") return; const lim = (k.id in L) ? L[k.id] : c.bud[k.id]; pool += Math.max(0, lim - c.before[k.id]); });
+    return pool / c.daysLeft;
+  }
+  const A = {id:"A", possible: cap >= c.D, limites: limitesFor(c.D)};
+  A.jour = dailyAfter(A.limites);
+  const half = Math.round(c.D/2);
+  const B = {id:"B", possible: cap >= half, limites: limitesFor(half), report: c.D - half};
+  B.jour = dailyAfter(B.limites);
+  const retard = joursPour(c.D);
+  const C = {id:"C", possible: retard != null, retard, nouvelleDate: retard != null ? addDays(S.objectif.echeance, Math.ceil(retard)) : null, limites: limitesFor(0)};
+  C.jour = dailyAfter(C.limites);
+  const ratio = cap > 0 ? c.D/cap : Infinity;
+  let best, why;
+  if(A.possible && ratio <= 0.6){ best = "A"; why = "Tu peux absorber l'écart ce mois-ci en ne prenant que "+Math.round(ratio*100)+" % de ta marge de manœuvre, sans toucher au minimum pour manger."; }
+  else if(B.possible){ best = "B"; why = "Tout rattraper ce mois-ci serait trop serré"+(A.possible?" (il faudrait utiliser "+Math.round(ratio*100)+" % de ta marge)":"")+". En étalant sur deux mois, l'effort reste tenable et l'échéance ne bouge pas."; }
+  else if(C.possible){ best = "C"; why = "Ta marge ce mois-ci est trop faible pour compenser sans te priver sur l'essentiel. Mieux vaut décaler l'échéance de quelques jours que de lâcher le budget."; }
+  else { best = "B"; why = "Définis une épargne mensuelle dans Réglages pour calculer le décalage."; }
+  return {A, B, C, best, why, cap, ratio};
+}
+
+/* ---------- Rendu ---------- */
+function ln(label, value, cls){ return `<div class="ln ${cls||""}"><span>${label}</span><span>${value}</span></div>`; }
+function calcBox(inner, titre){ return `<details class="calc"><summary>${esc(titre || "Comment c'est calculé")}</summary><div class="box">${inner}</div></details>`; }
+function dateCourte(s){ return parseD(s).toLocaleDateString("fr-FR",{day:"numeric",month:"short"}); }
+function fin(t){ return /\.$/.test(t) ? t : t + "."; }
+function renderHero(c){
+  const st = {
+    atteint:"Objectif atteint",
+    ok:"Dans les temps",
+    retard:"En retard sur le rythme",
+    echu:"Échéance dépassée"
+  }[c.statut];
+  $("#hero").innerHTML = `
+    <div class="row between"><span class="eyebrow">Objectif · échéance ${esc(shortDate(S.objectif.echeance))}</span><span class="status">${esc(st)}</span></div>
+    <h1>${esc(S.objectif.nom)}</h1>
+    ${S.pourquoi ? `<p class="why">« ${esc(S.pourquoi)} »</p>` : ""}
+    <div class="saved-line"><strong>${fmt(c.saved)}</strong><span class="small">sur ${fmt(c.target)} · ${Math.floor(c.pct)} %</span></div>
+    <div class="gauge" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(c.pct)}" aria-label="Progression"><i style="width:${c.pct.toFixed(1)}%"></i></div>
+    <div class="hero-figs">
+      <div><b>${fmt(c.reste)}</b><span>reste à épargner</span></div>
+      <div><b>${c.joursRest > 0 ? c.joursRest+" j" : "—"}</b><span>avant l'échéance</span></div>
+      <div><b>${c.reste > 0 && c.joursRest > 0 ? fmt(c.requis) : "—"}</b><span>par mois nécessaires</span></div>
+    </div>
+    ${c.reste > 0 ? `<p class="small">${c.projection ? `Avec ton plan d'épargne, objectif atteint vers le <b>${esc(shortDate(c.projection))}</b>.` : "Avec l'épargne prévue actuellement, l'objectif n'est pas atteignable : augmente l'épargne dans Réglages."}</p>` : ""}
+    ${gapTxt(c)}
+    ${margeTxt(c)}
+    ${detteTxt(c)}
+    ${heroCalc(c)}
+  `;
+}
+
+/* Quand l'échéance choisie arrive avant la date réaliste : combien il manque et où le trouver */
+function gapTxt(c){
+  if(c.statut !== "retard" || c.manque <= 0 || c.joursRest <= 0) return "";
+  const ech = S.objectif.echeance;
+  // Paies entre maintenant et l'échéance
+  const paies = []; let k = c.m;
+  for(let i = 0; i < 36; i++){ k = nextMonth(k); if(cycleStart(k) > ech) break; paies.push(k); }
+  // Dépenses exceptionnelles (un seul mois) prévues d'ici l'échéance et pas encore payées
+  const exc = S.categories.filter(x => x.debut && x.fin && x.debut === x.fin && !x.versEpargne && x.source !== "reserve" && (Number(x.budget)||0) > 0
+    && x.debut >= c.m && cycleStart(x.debut) <= ech && !(x.debut === c.m && c.spent[x.id] > 0));
+  const gain = x => Number(x.gainSiRepousse) || Number(x.budget) || 0;
+  const excTot = exc.reduce((a,x) => a + gain(x), 0);
+  const flex = S.categories.filter(x => x.type !== "fixe").reduce((a,x) => a + (Number(x.budget)||0), 0);
+  const items = [];
+  exc.forEach(x => {
+    const reste = c.manque - gain(x);
+    items.push(`Repousser <b>${esc(x.nomCourt || x.nom)}</b> après le ${esc(dateCourte(ech))} : ${fmt(gain(x))} de plus pour l'épargne${x.gainExplication ? ` (${esc(x.gainExplication)})` : ""}${reste <= 0 ? ". Ça suffit à lui seul." : `. Il manquerait encore ${fmt(reste)}.`}`);
+  });
+  if(paies.length){
+    const reste = exc.length ? Math.max(0, c.manque - excTot) : c.manque;
+    if(reste > 0){
+      const par = Math.ceil(reste/paies.length/1000)*1000;
+      const dur = flex > 0 && par > flex*0.35;
+      items.push(`${exc.length ? "Et en plus, d" : "D"}épenser <b>${fmt(par)} de moins à chaque paie</b> (${paies.length} paie${paies.length>1?"s":""} d'ici là) sur l'alimentation et les autres dépenses, qui ont ${fmt(flex)} par mois.${dur ? " C'est beaucoup : difficile à tenir." : ""}`);
+    }
+  }
+  items.push("Ou verser directement dans l'épargne tout argent en plus : créance remboursée, restes de fin de cycle, premières ventes.");
+  return `<div class="gap">
+    <b>Pour tenir le ${esc(shortDate(ech))}, il te manque ${fmt(c.manque)}.</b>
+    <span>D'ici cette date, ton plan ajoute ${fmt(c.accEch)} : tu aurais ${fmt(c.saved + c.accEch)} sur ${fmt(c.target)}. Pistes pour trouver la différence :</span>
+    <ul>${items.map(x => `<li>${x}</li>`).join("")}</ul>
+    ${c.projection ? `<button type="button" class="btn btn-sm" data-echeance="${esc(c.projection)}" ${readOnly?"disabled":""}>Garder une date réaliste : ${esc(shortDate(c.projection))}</button>` : ""}
+  </div>`;
+}
+/* Marge de sécurité : ce que le plan dépasse l'objectif à l'échéance */
+function margeTxt(c){
+  if(c.statut !== "ok" || c.reste <= 0) return "";
+  const ech = S.objectif.echeance;
+  const marge = c.saved + c.accEch - c.target;
+  const apres = cycleStart(nextMonth(cycleKey(ech)));
+  const cr = creancesAttendues().reduce((a,x) => a + (Number(x.montant)||0), 0);
+  const faible = marge < 50000;
+  return `<div class="gap marge">
+    <b>Marge de sécurité : ${fmt(marge)}</b>
+    <span>Si tu prends plus de ${fmt(marge)} dans ton épargne d'ici le ${esc(shortDate(ech))}, l'objectif glisse à la paie du ${esc(shortDate(apres))}.${faible ? " C'est très peu : protège-la." : ""}</span>
+    ${cr > 0 ? `<span>Avec l'argent qu'on te doit (${fmt(cr)}), versé à l'épargne dès réception, elle passerait à ${fmt(marge + cr)}.</span>` : ""}
+    <span>Chaque reste de fin de cycle versé à l'épargne l'augmente aussi.</span>
+  </div>`;
+}
+function heroCalc(c){
+  if(c.reste <= 0) return "";
+  let h = ln("Objectif", fmt(c.target)) + ln("Déjà épargné", "− "+fmt(c.saved)) + ln("Reste à épargner", fmt(c.reste), "tot");
+  h += `<p>Épargne par mois nécessaire : ${fmt(c.reste)} ÷ ${(Math.max(c.joursRest,0)/30.44).toFixed(1).replace(".",",")} mois avant l'échéance = ${fmt(c.requis)}.</p>`;
+  if(c.echeancier.length){
+    h += `<p><b>Ton calendrier d'épargne, paie par paie :</b></p>`;
+    c.echeancier.forEach(e => {
+      const reached = e.cumul >= c.target;
+      h += ln(`${esc(e.label)} : +${fmt(e.montant)}`, `${fmt(e.cumul)}${reached ? " ✓" : ""}`, reached ? "tot" : "");
+    });
+    const zero = c.echeancier.filter(e => e.montant === 0).map(e => e.label.replace("Paie du ","")).join(", ");
+    if(zero) h += `<p>0 Ar certains mois (${esc(zero)}) : ces paies servent à la dette ou à une grosse dépense prévue. Voir « Où va ton argent » pour le détail.</p>`;
+  }
+  const notes = S.categories.filter(k => k.id === "dette" && k.note && k.fin && c.m <= k.fin).map(k => `<p>${esc(k.note)}</p>`).join("");
+  return calcBox(h + notes, "Comment c'est calculé");
+}
+function apresDetteTxt(k){
+  const a = nextMonth(k.fin), b = nextMonth(a);
+  const ea = epargneDuCycle(a), eb = epargneDuCycle(b);
+  let t = `${fmt(ea)} d'épargne à la paie du ${dateCourte(cycleStart(a))}`;
+  if(eb !== ea) t += `, puis ${fmt(eb)} par mois à partir du ${dateCourte(cycleStart(b))}`;
+  return t;
+}
+function detteTxt(c){
+  const L = S.categories.filter(k => (k.id === "dette" || k.versEpargne) && k.fin && c.m <= k.fin && (Number(k.budget)||0) > 0);
+  return L.map(k => {
+    const from = (k.debut && k.debut > c.m) ? k.debut : c.m;
+    const n = cyclesEntre(from, k.fin) + 1;
+    const debutTxt = from !== c.m ? ` à partir de la paie du ${esc(shortDate(cycleStart(from)))}` : "";
+    return `<p class="small">${esc(k.nom)} : ${from !== c.m ? "" : "encore "}${n} versement${n>1?"s":""} de ${fmt(k.budget)}${debutTxt} (dernier au cycle ${esc(cycleLabel(k.fin))}).${k.versEpargne ? ` Une fois la dette finie, ces ${fmt(k.budget)} vont dans l'épargne : ${fin(apresDetteTxt(k))}` : ""}</p>`;
+  }).join("");
+}
+/* Série de jours tenus : chaque jour, dépenses non fixes ≤ budget du quotidien calculé le matin */
+function serie(c){
+  const A = S.argentCycle && S.argentCycle[c.m];
+  const debut = A && A.date && inCycle(A.date, c.m) ? A.date : cycleStart(c.m);
+  const hier = addDays(c.t, -1);
+  if(debut > hier) return {n:0, jours:[], debut};
+  const vars = S.categories.filter(k => k.type !== "fixe");
+  const jours = [];
+  for(let d = debut; d <= hier; d = addDays(d, 1)){
+    let pool = 0, dep = 0;
+    vars.forEach(k => {
+      let avant = 0;
+      MOVES.forEach(x => { if(x.type === "depense" && x.cat === k.id && inCycle(x.date, c.m)){ if(x.date < d) avant += Number(x.montant)||0; else if(x.date === d) dep += Number(x.montant)||0; } });
+      pool += Math.max(0, c.bud[k.id] - avant);
+    });
+    const base = pool / (daysBetween(d, cycleEnd(c.m)) + 1);
+    jours.push({d, dep, base, ok: dep <= base + 0.5});
+  }
+  // Avec le reste du jour : chaque jour est jugé sur son budget fixe
+  if(c.AJ){ c.AJ.days.forEach(x => { if(x.d >= c.t) return; const j = jours.find(y => y.d === x.d); if(j){ j.dep = x.S; j.base = x.A; j.ok = x.ok; } }); }
+  let n = 0; for(let i = jours.length - 1; i >= 0 && jours[i].ok; i--) n++;
+  return {n, jours, debut};
+}
+function resteJourTxt(c){
+  const A = c.AJ, hier = A.days.find(x => x.d === addDays(c.t, -1));
+  let h = `<p class="small"><b>Budget fixe du jour : ${fmt(c.dailyBase)}</b> (repas + autres dépenses, hors riz et charges fixes). Ce que tu ne dépenses pas aujourd'hui part dans ton épargne demain matin.</p>`;
+  if(hier){
+    if(hier.recorded) h += `<p class="small muted">Reste d'hier versé dans ton épargne : <b>${fmt(hier.sweep)}</b>. Mets cet argent de côté (enveloppe épargne ou Mvola).</p>`;
+    else if(hier.pending) h += `<p class="small muted">Reste d'hier : <b>${fmt(hier.sweep)}</b>. Le point du matin l'enregistre dans ton épargne. Mets cet argent de côté.</p>`;
+    else if(!hier.noted) h += `<p class="small muted">Rien n'est noté hier : note tes dépenses d'hier pour que le reste puisse aller dans l'épargne.</p>`;
+  }
+  return h;
+}
+function renderToday(c){
+  const neg = c.leftToday < 0;
+  let html = `
+    <span class="eyebrow">${esc(longDate(c.t))}</span>
+    <p class="muted small">${neg ? "Dépassement du budget du jour" : "Tu peux encore dépenser aujourd'hui"}</p>
+    <p class="today-big ${neg?"neg":""}">${fmt(Math.abs(c.leftToday))}</p>
+    ${(() => {
+      const sr = serie(c);
+      if(!sr.jours.length) return `<div class="row"><span class="pill neutral">Série : commence aujourd'hui</span><span class="small muted">Tiens ton budget du jour pour lancer ta série.</span></div>`;
+      const h = sr.jours[sr.jours.length - 1];
+      return `<div class="row"><span class="pill ${sr.n > 0 ? "ok" : "bad"}">Série : ${sr.n} jour${sr.n>1?"s":""} tenu${sr.n>1?"s":""} d'affilée</span>
+        <span class="small muted">Hier : ${h.ok ? `${fmt(h.dep)} sur ${fmt(h.base)}, tenu` : `dépassement de ${fmt(h.dep - h.base)}`}</span></div>`;
+    })()}
+    ${c.AJ ? resteJourTxt(c) : `<p class="small muted">Budget du quotidien : ${fmt(c.dailyBase)} par jour pendant les ${c.daysLeft} jours restants du cycle, jusqu'au ${esc(shortDate(cycleEnd(c.m)))} (hors charges fixes). Prochaine paie le ${esc(shortDate(cycleStart(nextMonth(c.m))))}.</p>`}`;
+  if(c.AJ){
+    const A = c.AJ;
+    let h = ln("Argent du quotidien restant (repas + autres)", fmt(A.today ? A.today.A*A.left : 0));
+    h += ln(`÷ ${A.left} jours (du ${esc(dateCourte(c.t))} au ${esc(dateCourte(cycleEnd(c.m)))})`, "= "+fmt(c.dailyBase)+" / jour", "tot");
+    if(A.today && A.today.S > 0) h += ln("Déjà dépensé aujourd'hui", "− "+fmt(A.today.S)) + ln("Il te reste aujourd'hui", fmt(Math.max(0, c.leftToday)), "tot");
+    h += `<p>Riz mis à part pour ce cycle : ${fmt(A.R)}${A.rizUsed > 0 ? ` (déjà utilisé : ${fmt(A.rizUsed)})` : ""}. Un achat noté « Riz… » en Alimentation est pris sur cette réserve, pas sur ton budget du jour.</p>`;
+    h += `<p>Chaque matin, le point du jour verse dans ton épargne ce que tu n'as pas dépensé la veille. Ton budget du jour reste donc le même tant que tu ne le dépasses pas. Carburant, internet, Shopify et les autres charges fixes ont leur propre enveloppe.</p>`;
+    html += calcBox(h);
+  } else {
+    let h = "";
+    let pool = 0;
+    S.categories.forEach(k => {
+      if(k.type === "fixe") return;
+      const b = c.bud[k.id], dep = c.before[k.id], r = Math.max(0, b - dep); pool += r;
+      h += ln(`${esc(k.nom)}`, fmt(r));
+      h += ln(`plafond ${fmt(b)} − déjà dépensé ${fmt(dep)}`, "", "sub");
+    });
+    h += ln("Total à dépenser d'ici la paie", fmt(pool), "tot");
+    h += ln(`÷ ${c.daysLeft} jours (du ${esc(dateCourte(c.t))} au ${esc(dateCourte(cycleEnd(c.m)))})`, "= "+fmt(c.dailyBase)+" / jour");
+    const today = c.dailyBase - c.leftToday;
+    if(today > 0) h += ln("Déjà dépensé aujourd'hui", "− "+fmt(today)) + ln("Il te reste aujourd'hui", fmt(c.leftToday), "tot");
+    h += `<p>Internet, carburant, imprévus et les autres charges fixes ne sont pas dans ce chiffre : ils ont chacun leur enveloppe (voir « Où va ton argent » juste en dessous).</p>`;
+    html += calcBox(h);
+  }
+  if(c.D > 0){
+    const lst = c.over.map(o => `${esc(o.cat.nom)} (+${fmt(o.exces)})`).join(", ");
+    html += `<div class="alert"><p><b>Dépassement de ${fmt(c.D)}</b> ce mois-ci : ${lst}.</p><button type="button" class="btn btn-sm" data-go="secours" style="align-self:flex-start">Voir mon plan B</button></div>`;
+  }
+  $("#today").innerHTML = html;
+}
+
+function renderSplit(c){
+  const A = S.argentCycle && S.argentCycle[c.m];
+  const reserve = S.categories.filter(k => k.source === "reserve" && c.bud[k.id] > 0);
+  let head, rows = "", total = 0, ref;
+  if(A){
+    // Argent de départ déclaré pour ce mois (ex. reste du salaire)
+    head = `Le ${esc(dateCourte(A.date))}, il te restait <b>${fmt(A.montant)}</b> (${esc(A.libelle || "argent disponible")}). Je l'ai partagé ainsi :`;
+    S.categories.forEach(k => {
+      if(k.source === "reserve") return;
+      const b = c.bud[k.id]; let avant = 0;
+      MOVES.forEach(x => { if(x.type === "depense" && x.cat === k.id && inCycle(x.date, c.m) && x.date < A.date) avant += Number(x.montant)||0; });
+      const r = Math.max(0, b - avant);
+      if(r <= 0) return;
+      total += r;
+      rows += ln(esc(k.nom), fmt(r));
+    });
+    const swT = totalRestes(c.m);
+    if(swT > 0){ total += swT; rows += ln("Restes versés à l'épargne", fmt(swT)); }
+    ref = Number(A.montant)||0;
+    rows += ln("Total", fmt(total), "tot");
+    if(Math.abs(total - ref) >= 1000) rows += `<p>${total > ref ? `Attention : ${fmt(total - ref)} de plus que ce que tu as.` : `${fmt(ref - total)} non attribués : ils peuvent aller dans l'épargne.`}</p>`;
+    const paid = S.categories.filter(k => k.source !== "reserve" && c.bud[k.id] > 0).filter(k => {
+      let avant = 0; MOVES.forEach(x => { if(x.type === "depense" && x.cat === k.id && inCycle(x.date, c.m) && x.date < A.date) avant += Number(x.montant)||0; });
+      return avant >= c.bud[k.id];
+    }).map(k => k.nom);
+    if(paid.length) rows += `<p>Déjà payés avant le ${esc(dateCourte(A.date))} : ${esc(paid.join(", "))}.</p>`;
+  } else {
+    const rev = Number(S.revenuMensuel)||0;
+    head = `Ta paie de <b>${fmt(rev)}</b> est partagée ainsi :`;
+    S.categories.forEach(k => { if(k.source === "reserve") return; const b = c.bud[k.id]; if(b <= 0) return; total += b; rows += ln(esc(k.nom), fmt(b)); });
+    const ep = epargneDuCycle(c.m); total += ep;
+    rows += ln("Épargne", fmt(ep));
+    const swT = totalRestes(c.m);
+    if(swT > 0){ total += swT; rows += ln("Restes versés à l'épargne", fmt(swT)); }
+    rows += ln("Total", fmt(total), "tot");
+    if(Math.abs(total - rev) >= 1000) rows += `<p>${total > rev ? `Attention : ${fmt(total - rev)} de plus que ta paie.` : `${fmt(rev - total)} non attribués : ils peuvent aller dans l'épargne.`}</p>`;
+  }
+  let resv = "";
+  if(reserve.length){
+    resv = `<p class="small muted">Payé avec la réserve de dette (pas avec cet argent) : ${reserve.map(k => `${esc(k.nom)} ${fmt(c.bud[k.id])}`).join(", ")}.</p>`;
+  }
+  $("#split").innerHTML = `
+    <h2 class="eyebrow">Où va ton argent ${esc(cycleLabel(c.m))}</h2>
+    <p class="small">${head}</p>
+    <div class="calc split"><div class="box">${rows}</div></div>
+    ${resv}
+    <p class="small muted">Chaque somme est un plafond : la liste « Budgets » plus bas montre ce que tu as déjà dépensé dans chacun.</p>`;
+}
+
+/* Les 2 derniers jours du cycle : verser les restes (autres, imprévus) dans l'épargne */
+function sweepItems(c){
+  return sweepCats().map(k => ({k, r: Math.max(0, c.bud[k.id] - c.spent[k.id])})).filter(x => x.r > 0);
+}
+function renderReste(c){
+  const el = $("#reste");
+  if(c.daysLeft > 2){ el.hidden = true; pendingSweep = false; return; }
+  el.hidden = false;
+  const quand = c.daysLeft === 1 ? "dernier jour" : "encore 2 jours";
+  const paie = shortDate(cycleStart(nextMonth(c.m)));
+  const sw = sweepOf(c.m);
+  if(sw){
+    el.innerHTML = `<h2 class="eyebrow">Fin de cycle · ${quand}</h2>
+      <p style="font-weight:800;font-size:16px">${fmt(sw.montant)} de restes versés dans l'épargne</p>
+      <p class="small muted">Noté le ${esc(shortDate(sw.date))}. Ces enveloppes sont à 0 jusqu'à la paie du ${esc(paie)}.</p>`;
+    return;
+  }
+  const items = sweepItems(c);
+  const tot = items.reduce((a,x) => a + x.r, 0);
+  if(!tot){
+    el.innerHTML = `<h2 class="eyebrow">Fin de cycle · ${quand}</h2><p class="small">Aucun reste à verser : tes enveloppes « autres » et « imprévus » sont vides.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <h2 class="eyebrow">Fin de cycle · ${quand}</h2>
+    <p style="font-weight:800;font-size:16px">Verse tes restes dans l'épargne : ${fmt(tot)}</p>
+    <div class="calc split"><div class="box">${items.map(x => ln(esc(x.k.nom), fmt(x.r))).join("")}${ln("Total vers l'épargne", fmt(tot), "tot")}</div></div>
+    <p class="small muted">Mets cet argent de côté avant la paie du ${esc(paie)}, puis confirme ici. Ces enveloppes passeront à 0 jusqu'à la paie. L'alimentation n'est jamais prise.</p>
+    ${pendingSweep
+      ? `<div class="row"><button type="button" class="btn btn-primary btn-sm" data-sweep="go">Oui, j'ai mis ${fmt(tot)} de côté</button><button type="button" class="btn btn-sm" data-sweep="cancel">Annuler</button></div>`
+      : `<button type="button" class="btn btn-primary" data-sweep="ask" style="align-self:flex-start" ${readOnly?"disabled":""}>Verser ${fmt(tot)} dans l'épargne</button>`}`;
+}
+
+/* Créances : argent qu'on te doit, hors budget jusqu'au remboursement */
+function renderCreances(){
+  const att = creancesAttendues().sort((a,b) => (a.date||"9999") < (b.date||"9999") ? -1 : 1);
+  const rec = CREANCES.filter(x => x.statut === "recue").sort((a,b) => (b.recueLe||"") > (a.recueLe||"") ? 1 : -1).slice(0,3);
+  const tot = att.reduce((a,x) => a + (Number(x.montant)||0), 0);
+  $("#cr-sum").textContent = tot > 0 ? fmt(tot) + " attendus" : "rien d'attendu";
+  let h = att.map(x => {
+    const p = pendingCr && pendingCr.id === x.id ? pendingCr.act : null;
+    const meta = [x.note ? esc(x.note) : "", x.date ? "prévu le " + esc(dateCourte(x.date)) : ""].filter(Boolean).join(" · ");
+    return `<div class="hist-item" style="grid-template-columns:1fr auto">
+      <div style="min-width:0"><b class="num">${fmt(x.montant)}</b>${meta ? `<p class="small muted">${meta}</p>` : ""}</div>
+      <div class="cr-btns">${
+        p === "recu" ? `<button type="button" class="btn btn-primary btn-sm" data-cr="recu-go" data-id="${esc(x.id)}">Oui, reçu : +${fmt(x.montant)} à l'épargne</button><button type="button" class="x" data-cr="cancel">Annuler</button>`
+        : p === "del" ? `<button type="button" class="x confirm" data-cr="del-go" data-id="${esc(x.id)}">Confirmer la suppression</button><button type="button" class="x" data-cr="cancel">Annuler</button>`
+        : `<button type="button" class="btn btn-sm" data-cr="recu" data-id="${esc(x.id)}" ${readOnly?"disabled":""}>Reçu</button><button type="button" class="x" data-cr="del" data-id="${esc(x.id)}" ${readOnly?"disabled":""} aria-label="Supprimer">Suppr.</button>`
+      }</div></div>`;
+  }).join("");
+  if(!att.length) h = `<p class="small muted">Aucune créance en attente. Ajoute ci-dessous l'argent qu'on te doit.</p>`;
+  if(rec.length) h += `<p class="small muted" style="padding-top:8px">Remboursés : ${rec.map(x => `${fmt(x.montant)} le ${esc(dateCourte(x.recueLe || todayStr()))}`).join(", ")}, versés à l'épargne.</p>`;
+  $("#cr-list").innerHTML = h;
+  $("#cr-add").disabled = readOnly;
+}
+
+function renderChips(){
+  const wrap = $("#chips-wrap");
+  wrap.hidden = formType !== "depense";
+  if(!formCat || !catById(formCat)) formCat = S.categories[0] ? S.categories[0].id : null;
+  $("#chips").innerHTML = S.categories.map(c => `<button type="button" class="chip" data-cat="${esc(c.id)}" aria-pressed="${c.id===formCat}">${esc(c.nom)}</button>`).join("");
+  $("#type-dep").setAttribute("aria-pressed", formType === "depense");
+  $("#type-ep").setAttribute("aria-pressed", formType === "epargne");
+  const inp = $("#f-montant"), hint = $("#f-hint"), btn = $("#f-submit");
+  const k = catById(formCat), uniq = formType === "depense" && isUnique(k);
+  if(uniq){
+    const c = compute(), m = c.bud[k.id], deja = c.spent[k.id] > 0;
+    inp.readOnly = true; inp.dataset.locked = "1";
+    inp.value = m > 0 ? m.toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g," ") : "";
+    hint.hidden = false;
+    hint.innerHTML = deja ? `<b>${esc(k.nom)}</b> est déjà payé pour ce cycle.` : m > 0 ? `<b>${esc(k.nom)}</b> se paie en une seule fois : <b>${fmt(m)}</b>. Le montant ne peut pas être modifié.` : `<b>${esc(k.nom)}</b> n'est pas à payer ce cycle.`;
+    btn.textContent = pendingPay === k.id ? `Confirmer : j'ai payé ${fmt(m)}` : `Payer ${fmt(m)} en une fois`;
+    btn.disabled = readOnly || deja || !(m > 0);
+  } else {
+    if(inp.dataset.locked){ inp.readOnly = false; inp.value = ""; delete inp.dataset.locked; }
+    hint.hidden = true;
+    btn.textContent = formType === "depense" ? "Ajouter la dépense" : "Ajouter à l'épargne";
+    btn.disabled = readOnly;
+  }
+}
+
+function renderCats(c){
+  $("#cats-title").textContent = "Budgets " + cycleLabel(c.m);
+  $("#cats-sum").textContent = fmt(c.depMois) + " / " + fmt(c.totalBud);
+  const adj = S.ajustement && S.ajustement.mois === c.m;
+  const rep = S.report && S.report.mois === c.m;
+  let html = "";
+  if(adj || rep){
+    html += `<p class="small muted" style="padding-bottom:8px">${adj ? "Plan B appliqué : certains plafonds sont réduits ce mois-ci. " : ""}${rep ? "Report du mois dernier : "+fmt(S.report.montant)+" retiré des postes flexibles." : ""}</p>`;
+  }
+  html += S.categories.map(k => {
+    const s = c.spent[k.id], b = c.bud[k.id], base = Number(k.budget)||0;
+    if(b === 0 && s === 0 && k.fin && c.m > k.fin) return `<div class="cat"><div class="cat-head"><b>${esc(k.nom)}</b><span class="pill ok">terminé</span></div></div>`;
+    if(b === 0 && s === 0 && k.debut && c.m < k.debut) return `<div class="cat"><div class="cat-head"><b>${esc(k.nom)}</b><span class="pill neutral">commence le ${esc(parseD(cycleStart(k.debut)).toLocaleDateString("fr-FR",{day:"numeric",month:"short"}))}</span></div></div>`;
+    const p = b > 0 ? s/b : (s > 0 ? 2 : 0);
+    const paye = isUnique(k) && s > 0 && s >= b;
+    const cls = paye ? "ok" : p > 1 ? "bad" : p >= 0.8 ? "warn" : "ok";
+    const pill = paye ? `<span class="pill ok">payé</span>` : p > 1 ? `<span class="pill bad">+${fmt(s-b)}</span>` : p >= 0.8 ? `<span class="pill warn">${Math.round(p*100)} %</span>` : `<span class="pill ok">reste ${fmt(b-s)}</span>`;
+    return `<div class="cat">
+      <div class="cat-head"><b>${esc(k.nom)}</b>${pill}</div>
+      <div class="bar ${cls}"><i style="width:${Math.min(100,p*100).toFixed(1)}%"></i></div>
+      <div class="cat-head"><span>${fmt(s)} dépensés</span><span>plafond ${fmt(b)}${b !== base && b > 0 ? ` <br>ce mois-ci (normalement ${fmt(base)})` : ""}</span></div>
+      ${k.progressif && k.note ? `<span class="small muted">${esc(k.note)}</span>` : ""}
+      ${isUnique(k) && s === 0 && b > 0 && !readOnly ? (pendingPay === k.id
+        ? `<div class="row"><button type="button" class="btn btn-sm btn-primary" data-pay="${esc(k.id)}">Oui, j'ai payé ${fmt(b)}</button><button type="button" class="btn btn-sm" data-paycancel>Annuler</button></div><span class="small muted">Une seule fois, en totalité. Vérifie que c'est bien payé.</span>`
+        : `<button type="button" class="btn btn-sm" data-payask="${esc(k.id)}" style="align-self:flex-start">Marquer payé (${fmt(b)})</button>`) : ""}
+    </div>`;
+  }).join("");
+  $("#cats").innerHTML = html;
+}
+
+function renderBilan(){
+  if(BILAN){
+    const st = {ok:["ok","Dans le budget"], attention:["warn","À surveiller"], depasse:["bad","Dépassement"]}[BILAN.statut] || ["neutral","Bilan"];
+    $("#bilan").innerHTML = `
+      <div class="row between"><h2 class="eyebrow">Point du jour · ${esc(shortDate(BILAN.date || todayStr()))}</h2><span class="pill ${st[0]}">${esc(st[1])}</span></div>
+      <div class="bilan">${BILAN.titre ? `<b>${esc(BILAN.titre)}</b>` : ""}<p>${esc(BILAN.texte || "")}</p></div>`;
+  } else {
+    $("#bilan").innerHTML = `
+      <h2 class="eyebrow">Point du jour</h2>
+      <p class="small muted">Chaque matin, Claude relit tes mouvements et dépose ici ton point du jour : budget à respecter, menu, carburant les jours de travail, et une nouvelle combinaison de dépenses dès qu'il y a un dépassement.</p>`;
+  }
+}
+
+function renderPlan(c){
+  const P = plans(c);
+  const adj = S.ajustement && S.ajustement.mois === c.m;
+  if(!P){
+    let html = `<h2 class="eyebrow">Plan B</h2>
+      <p style="font-weight:800;font-size:16px">Aucun dépassement ce mois-ci.</p>
+      <p class="small muted">Si une catégorie dépasse son plafond, ce panneau calcule automatiquement trois façons de rattraper l'écart et te recommande la meilleure.</p>`;
+    if(adj){
+      const lab = {A:"tout rattraper ce cycle-ci", B:"étaler sur deux cycles", C:"décaler l'échéance"}[S.ajustement.plan] || "plan personnalisé";
+      html += `<div class="plan"><p class="small">Plan en cours : <b>${esc(lab)}</b> (appliqué le ${esc(shortDate(S.ajustement.le || c.t))}).</p><button type="button" class="btn btn-sm" data-undo style="align-self:flex-start" ${readOnly?"disabled":""}>Annuler ce plan</button></div>`;
+    }
+    $("#plan").innerHTML = html;
+    return;
+  }
+  const lim = L => {
+    const items = Object.keys(L).filter(k => L[k] !== c.bud[k]).map(k => {
+      const s = c.spent[k];
+      return L[k] <= s ? `<li>${esc(catName(k))} : plus aucune dépense ce mois-ci</li>` : `<li>${esc(catName(k))} : plafond ${fmt(L[k])} (encore ${fmt(L[k]-s)})</li>`;
+    });
+    return items.length ? `<ul>${items.join("")}</ul>` : "";
+  };
+  const card = (id, title, body, possible) => `
+    <div class="plan ${P.best===id?"best":""}">
+      ${P.best===id ? `<span class="tag">Meilleure combinaison</span>` : ""}
+      <h3>${title}</h3>
+      ${body}
+      ${possible ? `<button type="button" class="btn ${P.best===id?"btn-primary":""} btn-sm" data-apply="${id}" style="align-self:flex-start" ${readOnly?"disabled":""}>Appliquer ce plan</button>` : `<p class="small muted">Pas assez de marge ce mois-ci pour ce plan.</p>`}
+    </div>`;
+  const html = `
+    <h2 class="eyebrow">Plan B · ${fmt(c.D)} à rattraper</h2>
+    <p class="small muted">${esc(P.why)}</p>
+    ${card("A","Tout rattraper ce mois-ci",
+      `<p class="small">Budget du quotidien : <b>${fmt(P.A.jour)}</b> par jour jusqu'à la fin du mois.</p>${lim(P.A.limites)}`, P.A.possible)}
+    ${card("B","Étaler sur deux mois",
+      `<p class="small">${fmt(c.D - P.B.report)} rattrapés ce mois-ci, ${fmt(P.B.report)} retirés des postes flexibles du prochain cycle (${esc(cycleLabel(nextMonth(c.m)))}). Budget du quotidien : <b>${fmt(P.B.jour)}</b> par jour.</p>${lim(P.B.limites)}`, P.B.possible)}
+    ${card("C","Garder le rythme, décaler l'échéance",
+      P.C.possible ? `<p class="small">Tu ne coupes rien d'autre. L'objectif recule d'environ <b>${joursTxt(P.C.retard)}</b> : nouvelle échéance le ${esc(shortDate(P.C.nouvelleDate))}.</p>` : `<p class="small muted">Indique ton épargne mensuelle dans Réglages.</p>`, P.C.possible)}
+  `;
+  $("#plan").innerHTML = html;
+}
+
+function laokaList(){ return (S.laokas||[]).filter(l => Number(l.prix) > 0).map(l => Object.assign({}, l, {prix:Number(l.prix)})); }
+function rpj(){ return Math.max(1, Math.min(3, Number(S.repasParJour)||2)); }
+function minRepasJour(){
+  const L = laokaList();
+  const cheapest = L.length ? Math.min.apply(null, L.map(l => l.prix)) : 0;
+  return Math.max(Number(S.minAlimJour)||0, cheapest*rpj());
+}
+function rizInfo(t){
+  const r = S.riz; if(!r || !(Number(r.stockKg) > 0)) return null;
+  const perDay = 1/Math.max(0.5, Number(r.joursParKg)||3);
+  const used = Math.max(0, daysBetween(r.depuis || t, t))*perDay;
+  const restant = Math.max(0, Number(r.stockKg) - used);
+  const joursRestants = restant/perDay;
+  return {restant, joursRestants, perDay, fin: addDays(t, Math.floor(joursRestants)), prixKg:Number(r.prixKg)||0};
+}
+function planSemaine(c){
+  const L = laokaList();
+  if(!L.length) return null;
+  const n = rpj();
+  const ri = rizInfo(c.t);
+  const alimRem = catById("alim") ? Math.max(0, c.bud.alim - c.before.alim) : minRepasJour()*c.daysLeft;
+  let reserve = 0, kgManque = 0;
+  if(ri){ kgManque = Math.max(0, c.daysLeft - ri.joursRestants)*ri.perDay; reserve = kgManque*ri.prixKg; }
+  else if(S.riz && Number(S.riz.prixKg) > 0){ const pd = 1/Math.max(0.5, Number(S.riz.joursParKg)||3); kgManque = c.daysLeft*pd; reserve = kgManque*Number(S.riz.prixKg); }
+  // Budget laoka jour par jour : mois en cours (reste − riz à racheter), puis base du mois suivant si la semaine déborde
+  const curDay = Math.max(0, alimRem - reserve)/c.daysLeft;
+  const nm = nextMonth(c.m), nmDim = cycleLen(nm);
+  const nmBud = catById("alim") ? budgetsFor(nm).alim : minRepasJour()*nmDim;
+  const rizJour = (S.riz ? (1/Math.max(0.5, Number(S.riz.joursParKg)||3))*(Number(S.riz.prixKg)||0) : 0);
+  let W = 0;
+  for(let d = 0; d < 7; d++){
+    const ds = addDays(c.t, d);
+    if(inCycle(ds, c.m)) W += curDay;
+    else { const needRiz = !ri || ds > ri.fin; W += Math.max(0, nmBud/nmDim - (needRiz ? rizJour : 0)); }
+  }
+  const parJour = W/7;
+  const sorted = L.slice().sort((a,b) => a.prix - b.prix);
+  const cheapest = sorted[0], priciest = sorted[sorted.length-1];
+  const nSlots = 7*n;
+  const slots = new Array(nSlots).fill(cheapest);
+  let total = cheapest.prix*nSlots;
+  const count = new Map(L.map(l => [l.id, 0])); count.set(cheapest.id, nSlots);
+  const cap = Math.ceil(nSlots/L.length) + 1;
+  const order = [];
+  for(let r = 0; r < n; r++) for(let k = 0; k < 7; k++){ const d = (k*3 + r*2 + menuShift) % 7; order.push(d*n + r); }
+  const same = (i, l) => (i > 0 && slots[i-1].id === l.id) || (i < nSlots-1 && slots[i+1].id === l.id);
+  let changed = true;
+  while(changed){
+    changed = false;
+    for(const idx of order){
+      const cur = slots[idx];
+      if(cur.id !== cheapest.id) continue;
+      const cands = sorted.filter(l => l.id !== cheapest.id && (l.id !== priciest.id || L.length <= 2) && count.get(l.id) < cap && total - cur.prix + l.prix <= W && !same(idx, l))
+        .sort((a,b) => (count.get(a.id) - count.get(b.id)) || (a.prix - b.prix));
+      if(cands.length){ const l = cands[0]; slots[idx] = l; total += l.prix - cur.prix; count.set(l.id, count.get(l.id)+1); count.set(cur.id, count.get(cur.id)-1); changed = true; }
+    }
+  }
+  // Repas plaisir : le laoka le plus cher une fois par semaine, le dimanche midi si possible
+  let plaisir = false;
+  if(L.length > 2){
+    let sun = 0; for(let d = 0; d < 7; d++){ if(parD(addDays(c.t,d)).getDay() === 0){ sun = d; break; } }
+    const idx = sun*n; const cur = slots[idx];
+    if(total - cur.prix + priciest.prix <= W){ slots[idx] = priciest; total += priciest.prix - cur.prix; count.set(cur.id, count.get(cur.id)-1); count.set(priciest.id, count.get(priciest.id)+1); plaisir = true; }
+  }
+  const jours = [];
+  for(let d = 0; d < 7; d++){ const repas = slots.slice(d*n, d*n+n); jours.push({date:addDays(c.t, d), repas, cout:repas.reduce((s,l) => s + l.prix, 0)}); }
+  return {jours, total, W, parJour, curDay, alimRem, reserve, kgManque, ri, n, plaisir, min:cheapest.prix*nSlots, count, L:sorted, tight: total > W};
+}
+function parD(s){ return parseD(s); }
+
+function renderMenu(c){
+  const P = planSemaine(c);
+  if(!P){ $("#menu").innerHTML = `<h2 class="eyebrow">Menus de la semaine</h2><p class="small muted">Ajoute tes laoka et leurs prix dans Réglages pour que je compose tes menus.</p>`; return; }
+  const labs = P.n === 1 ? ["Repas"] : P.n === 2 ? ["Midi","Soir"] : ["Matin","Midi","Soir"];
+  const today = P.jours[0];
+  const eco = Math.max(0, P.W - P.total);
+  const wd = s => parseD(s).toLocaleDateString("fr-FR",{weekday:"short", day:"numeric"});
+  let riz = "";
+  if(P.ri){
+    riz = `<div class="mind"><b>Riz : environ ${P.ri.restant.toFixed(1).replace(".",",")} kg en stock</b><p>Au rythme de 1 kg tous les ${esc(S.riz.joursParKg)} jours, il tient jusqu'au ${esc(shortDate(P.ri.fin))}.${P.reserve > 0 ? ` Je garde ${fmt(P.reserve)} dans ton budget alimentation pour racheter ${P.kgManque.toFixed(1).replace(".",",")} kg d'ici la paie du ${esc(fin(dateCourte(cycleStart(nextMonth(c.m)))))}` : ` Pas de riz à racheter avant la paie du ${esc(fin(dateCourte(cycleStart(nextMonth(c.m)))))}`}</p></div>`;
+  } else {
+    riz = `<div class="mind"><b>Stock de riz épuisé</b><p>${P.reserve > 0 ? `Il faut environ ${P.kgManque.toFixed(1).replace(".",",")} kg d'ici la paie du ${esc(dateCourte(cycleStart(nextMonth(c.m))))} (${fmt(P.reserve)}), déjà réservés dans ton budget alimentation.` : "Indique ton stock dans Réglages."}</p></div>`;
+  }
+  $("#menu").innerHTML = `
+    <div class="row between"><h2 class="eyebrow">Menus des 7 prochains jours</h2><button type="button" class="btn btn-sm" id="menu-next">Autre combinaison</button></div>
+    <p class="small muted">Budget laoka : <b class="num">${fmt(P.parJour)}</b> par jour (le riz vient de ton stock). ${P.tight ? "C'est sous le minimum : je propose le laoka le moins cher partout." : `Combinaison choisie : ${fmt(P.total)} pour la semaine sur ${fmt(P.W)} possibles${eco >= 1000 ? `, soit ${fmt(eco)} d'économie` : ""}.`}</p>
+    ${calcBox(
+      ln("Reste en alimentation d'ici la paie", fmt(P.alimRem)) +
+      (P.reserve > 0 ? ln(`Riz à racheter (${P.kgManque.toFixed(1).replace(".",",")} kg × ${fmt(S.riz.prixKg)})`, "− "+fmt(P.reserve)) : "") +
+      ln("Pour les laoka", fmt(Math.max(0, P.alimRem - P.reserve)), "tot") +
+      ln(`÷ ${c.daysLeft} jours jusqu'au ${esc(dateCourte(cycleEnd(c.m)))}`, "= "+fmt(P.curDay)+" / jour") +
+      (Math.abs(P.curDay - P.parJour) >= 50 ? `<p>La semaine déborde sur le mois suivant : la moyenne des 7 jours est de ${fmt(P.parJour)} par jour.</p>` : "") +
+      `<p>Je pars du laoka le moins cher, puis je varie tant que le total de la semaine reste sous ${fmt(P.W)}.</p>`
+    )}
+    <div class="mind" style="background:var(--accent-soft)">
+      <span class="eyebrow" style="color:var(--accent)">Aujourd'hui</span>
+      ${today.repas.map((l,i) => `<div class="row between" style="flex-wrap:nowrap;align-items:baseline"><span><b>${labs[i]} :</b> vary + ${esc(l.nom)}</span><span class="num small" style="font-weight:700">${fmt(l.prix)}</span></div>`).join("")}
+    </div>
+    <div style="overflow-x:auto">
+      <table class="week">
+        <thead><tr><th>Jour</th>${labs.map(x => `<th>${x}</th>`).join("")}<th class="r">Coût</th></tr></thead>
+        <tbody>${P.jours.map((j,d) => `<tr${d===0?' class="now"':''}><td>${esc(wd(j.date))}</td>${j.repas.map(l => `<td>${esc(l.nom)}</td>`).join("")}<td class="r num">${fmt(j.cout)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td colspan="${P.n+1}">Total semaine</td><td class="r num">${fmt(P.total)}</td></tr></tfoot>
+      </table>
+    </div>
+    ${P.plaisir ? `<p class="small muted">Le laoka le plus cher (${esc(P.L[P.L.length-1].nom)}) est placé une fois dans la semaine comme repas plaisir, le dimanche si possible.</p>` : ""}
+    <details class="small"><summary style="cursor:pointer;font-weight:700">Mes laoka et leurs prix</summary>
+      <ul style="margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px">${P.L.map(l => `<li><b>${esc(l.nom)}</b> · ${fmt(l.prix)} · ${P.count.get(l.id)}× cette semaine<br><span class="muted">${esc(l.detail||"")}</span></li>`).join("")}</ul>
+    </details>
+    ${riz}
+    <div class="row" style="align-items:flex-end">
+      <label for="riz-kg" style="flex:1;min-width:140px">J'ai racheté du riz (kg)<input id="riz-kg" inputmode="decimal" placeholder="ex. 6"></label>
+      <button type="button" class="btn btn-sm" id="riz-add" ${readOnly?"disabled":""}>Ajouter au stock</button>
+    </div>
+    <label class="row" style="flex-direction:row;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="riz-dep" checked style="width:auto"> Noter aussi la dépense en Alimentation</label>`;
+}
+
+function renderMindset(c){
+  const obj = S.objectif.nom;
+  const E = fmt(rythmeJour()*30.44);
+  const W = fmt(c.dailyBase*7);
+  const j10 = joursPour(10000);
+  const over = [
+    {t:"Un écart n'efface pas l'objectif", x:`Tu as dépassé de ${fmt(c.D)}. Ça décale un chiffre, pas la direction. Choisis un plan ci-dessus et reprends dès aujourd'hui.`},
+    {t:"Compte en jours, pas en Ariary", x:`Ce dépassement vaut environ ${joursTxt(joursPour(c.D))} de retard sur « ${obj} ». Chaque journée tenue dans le budget en rattrape une partie.`},
+    {t:"Évite le « tant pis, le mois est fichu »", x:"C'est le piège le plus coûteux. Les jours qui restent comptent autant que ceux déjà passés."}
+  ];
+  const always = [
+    {t:"Paie-toi en premier", x:(() => { let k = nextMonth(c.m); for(let i = 0; i < 12 && epargneDuCycle(k) <= 0; i++) k = nextMonth(k); return `Le ${shortDate(cycleStart(k))}, dès que le salaire arrive, mets ${fmt(epargneDuCycle(k))} de côté avant toute autre dépense. Ce qui n'est pas sous tes yeux ne se dépense pas.`; })()},
+    {t:"La règle des 48 heures", x:"Pour tout achat non prévu au-dessus de 20 000 Ar, attends deux jours. Si l'envie est encore là, vérifie d'abord ton budget."},
+    {t:"Remplace, ne supprime pas", x:"Une sortie à 30 000 Ar peut devenir une balade et un koba à 2 000 Ar. Tu gardes le plaisir, pas la facture."},
+    {t:"Une enveloppe par semaine", x:`Garde en espèces (ou sur Mvola) seulement le budget du quotidien de la semaine, environ ${W}. Enveloppe vide, semaine terminée.`},
+    {t:"Relis ton pourquoi", x:`« ${S.pourquoi} » Relis-le avant chaque achat qui n'était pas prévu.`},
+    {t:"La régularité bat la perfection", x:"Tenir le budget quatre semaines sur cinq suffit pour avancer. Vise la constance, pas le mois parfait."},
+    {t:`10 000 Ar = ${joursTxt(j10)}`, x:`Au rythme de ${E} par mois, chaque 10 000 Ar épargnés te rapprochent de ${joursTxt(j10)} de « ${obj} ».`}
+  ];
+  const d = dayOfYear();
+  let pick;
+  if(c.D > 0) pick = [over[d % 3], over[(d+1) % 3], always[d % always.length]];
+  else pick = [always[d % always.length], always[(d+2) % always.length], always[(d+4) % always.length]];
+  $("#mindset").innerHTML = `<h2 class="eyebrow">Mindset du jour</h2>` + pick.map(m => `<div class="mind"><b>${esc(m.t)}</b><p>${esc(m.x)}</p></div>`).join("");
+}
+
+function renderSim(c){
+  const v = toNum($("#sim").value);
+  const out = $("#sim-out");
+  if(!v){ out.textContent = "Tape un montant pour voir ce qu'il coûte en jours d'objectif."; return; }
+  const j = joursPour(v);
+  const dpct = c.dailyBase > 0 ? v/c.dailyBase : null;
+  out.innerHTML = `<b>${fmt(v)}</b> = environ <b>${joursTxt(j)}</b> de retard sur « ${esc(S.objectif.nom)} »` + (dpct != null ? `, soit ${dpct >= 1 ? dpct.toFixed(1).replace(".",",")+" jours" : Math.round(dpct*100)+" % d'une journée"} de ton budget du quotidien.` : ".");
+}
+
+function renderHisto(){
+  const months = Array.from(new Set(MOVES.filter(x => x.date).map(x => cycleKey(x.date)))).sort().reverse();
+  const cur = cycleKey(todayStr());
+  if(!months.includes(cur)) months.unshift(cur);
+  if(!histMonth || !months.includes(histMonth)) histMonth = cur;
+  $("#h-mois").innerHTML = months.map(m => `<option value="${m}" ${m===histMonth?"selected":""}>${esc(cycleLabel(m))}</option>`).join("");
+  const list = MOVES.filter(x => inCycle(x.date, histMonth)).sort((a,b) => (b.date+(b.ts||0)) > (a.date+(a.ts||0)) ? 1 : -1);
+  if(!list.length){ $("#histo").innerHTML = `<p class="small muted">Aucun mouvement ${esc(cycleLabel(histMonth))}.</p>`; }
+  else {
+    const byDay = {};
+    list.forEach(x => (byDay[x.date] = byDay[x.date] || []).push(x));
+    $("#histo").innerHTML = Object.keys(byDay).sort().reverse().map(d => `
+      <div class="hist-day"><h3>${esc(longDate(d))}</h3>
+      ${byDay[d].map(x => `<div class="hist-item">
+        <div><b style="font-size:14px">${x.type==="epargne" ? "Épargne" : esc(catName(x.cat))}</b>${x.exemple?`<span class="ex">exemple</span>`:""}${x.note?`<p class="small muted">${esc(x.note)}</p>`:""}</div>
+        <span class="amt ${x.type==="epargne"?"ep":""}">${x.type==="epargne"?"+":"−"}${fmt(x.montant)}</span>
+        <button type="button" class="x ${pendingDel===x.id?"confirm":""}" data-del="${esc(x.id)}" ${readOnly?"disabled":""} aria-label="Supprimer">${pendingDel===x.id?"Confirmer":"Suppr."}</button>
+      </div>`).join("")}</div>`).join("");
+  }
+  $("#ex-card").hidden = !MOVES.some(x => x.exemple) && !S.exemple;
+}
+
+function renderReglages(){
+  if(reglagesDirty) return;
+  draftCats = clone(S.categories);
+  const f = $("#reglages");
+  f.innerHTML = `
+    <div class="card">
+      <h2 class="eyebrow">Mon objectif</h2>
+      <label for="r-nom">Nom de l'objectif<input id="r-nom" value="${esc(S.objectif.nom)}"></label>
+      <div class="grid2">
+        <label for="r-montant">Montant visé (Ar)<input id="r-montant" inputmode="numeric" value="${esc(S.objectif.montant)}"></label>
+        <label for="r-echeance">Échéance<input id="r-echeance" type="date" value="${esc(S.objectif.echeance)}"></label>
+      </div>
+      <label for="r-pourquoi">Mon pourquoi (affiché en haut et relu en cas d'écart)<textarea id="r-pourquoi">${esc(S.pourquoi)}</textarea></label>
+      <label for="r-deja">Déjà épargné avant de commencer (Ar)<input id="r-deja" inputmode="numeric" value="${esc(S.dejaEpargne)}"></label>
+    </div>
+    <div class="card">
+      <h2 class="eyebrow">Mon mois</h2>
+      <div class="grid2">
+        <label for="r-revenu">Revenu mensuel (Ar)<input id="r-revenu" inputmode="numeric" value="${esc(S.revenuMensuel)}"></label>
+        <label for="r-epargne">Épargne prévue / mois (Ar)<input id="r-epargne" inputmode="numeric" value="${esc(S.epargneMensuelle)}"></label>
+      </div>
+      <label for="r-paie">Jour de paie (début du cycle)<input id="r-paie" inputmode="numeric" value="${esc(jourPaie())}"></label>
+      <p id="r-check" class="small"></p>
+    </div>
+    <div class="card">
+      <h2 class="eyebrow">Repas et riz</h2>
+      <div class="grid2">
+        <label for="r-rpj">Repas avec laoka par jour<select id="r-rpj">${[1,2,3].map(v => `<option value="${v}" ${rpj()===v?"selected":""}>${v}</option>`).join("")}</select></label>
+        <label for="r-min">Minimum laoka / jour (Ar)<input id="r-min" inputmode="numeric" value="${esc(S.minAlimJour)}"></label>
+      </div>
+      <div class="grid2">
+        <label for="r-rizstock">Riz en stock (kg)<input id="r-rizstock" inputmode="decimal" value="${esc(rizInfo(todayStr()) ? rizInfo(todayStr()).restant.toFixed(1) : 0)}"></label>
+        <label for="r-rizjours">1 kg dure (jours)<input id="r-rizjours" inputmode="decimal" value="${esc(S.riz ? S.riz.joursParKg : 3)}"></label>
+      </div>
+      <label for="r-rizprix">Prix du riz au kilo (Ar)<input id="r-rizprix" inputmode="numeric" value="${esc(S.riz ? S.riz.prixKg : 4000)}"></label>
+    </div>
+    <div class="card">
+      <div class="row between"><h2 class="eyebrow">Mes laoka</h2><button type="button" class="btn btn-sm" id="r-addlaoka">Ajouter</button></div>
+      <p class="small muted">Prix d'un repas pour tout le foyer, riz non compris. Le planning de la semaine combine ces laoka dans ton budget.</p>
+      <div id="r-laokas"></div>
+    </div>
+    <div class="card">
+      <div class="row between"><h2 class="eyebrow">Catégories et plafonds</h2><button type="button" class="btn btn-sm" id="r-addcat">Ajouter</button></div>
+      <p class="small muted">« Libre » peut être coupé entièrement en cas d'écart, « réductible » jusqu'à moitié, « fixe » n'est jamais touché. L'alimentation garde toujours le minimum repas.</p>
+      <div id="r-cats"></div>
+    </div>
+    <button type="submit" class="btn btn-primary" ${readOnly?"disabled":""}>Enregistrer les réglages</button>`;
+  draftLaokas = clone(S.laokas || []);
+  renderCatRows();
+  renderLaokaRows();
+  updateCheck();
+}
+function renderLaokaRows(){
+  $("#r-laokas").innerHTML = draftLaokas.map((l,i) => `
+    <div class="cat-edit" data-li="${i}">
+      <input aria-label="Nom du laoka" data-lk="nom" value="${esc(l.nom)}">
+      <input aria-label="Prix" data-lk="prix" inputmode="numeric" value="${esc(l.prix)}">
+      <div class="full">
+        <input aria-label="Détail" data-lk="detail" value="${esc(l.detail||"")}" placeholder="ex. brèdes 500 + tomates 200">
+        <button type="button" class="x" data-rmlaoka="${i}">Retirer</button>
+      </div>
+    </div>`).join("") || `<p class="small muted">Aucun laoka pour l'instant.</p>`;
+}
+function syncLaokas(){
+  document.querySelectorAll("#r-laokas .cat-edit").forEach(row => {
+    const l = draftLaokas[Number(row.dataset.li)]; if(!l) return;
+    row.querySelectorAll("[data-lk]").forEach(el => { l[el.dataset.lk] = el.dataset.lk === "prix" ? toNum(el.value) : el.value; });
+  });
+}
+function renderCatRows(){
+  $("#r-cats").innerHTML = draftCats.map((c,i) => `
+    <div class="cat-edit" data-i="${i}">
+      <input aria-label="Nom" data-k="nom" value="${esc(c.nom)}">
+      <input aria-label="Plafond" data-k="budget" inputmode="numeric" value="${esc(c.budget)}">
+      <div class="full">
+        <select aria-label="Type" data-k="type">${Object.keys(TYPES).map(t => `<option value="${t}" ${c.type===t?"selected":""}>${TYPES[t]}</option>`).join("")}</select>
+        ${c.id === "alim" ? "" : `<button type="button" class="x" data-rmcat="${i}">Retirer</button>`}
+      </div>
+      <div class="full" style="flex-wrap:wrap">
+        <label style="flex-direction:row;align-items:center;gap:6px;font-weight:600">Premier cycle<input type="month" data-k="debut" value="${esc(c.debut||"")}" style="width:auto"></label>
+        <label style="flex-direction:row;align-items:center;gap:6px;font-weight:600">Dernier cycle<input type="month" data-k="fin" value="${esc(c.fin||"")}" style="width:auto"></label>
+        <label style="flex-direction:row;align-items:center;gap:6px;font-weight:600"><input type="checkbox" data-k="versEpargne" ${c.versEpargne?"checked":""} style="width:auto"> puis vers l'épargne</label>
+        <label style="flex-direction:row;align-items:center;gap:6px;font-weight:600"><input type="checkbox" data-k="unique" ${isUnique(c)?"checked":""} style="width:auto"> à payer en une seule fois</label>
+      </div>
+    </div>`).join("");
+}
+function syncDraft(){
+  document.querySelectorAll("#r-cats .cat-edit").forEach(row => {
+    const i = Number(row.dataset.i); const c = draftCats[i]; if(!c) return;
+    row.querySelectorAll("[data-k]").forEach(el => { c[el.dataset.k] = el.type === "checkbox" ? el.checked : el.dataset.k === "budget" ? toNum(el.value) : el.value; });
+  });
+}
+function updateCheck(){
+  if(!$("#r-check")) return;
+  syncDraft();
+  const rev = toNum($("#r-revenu").value), ep = toNum($("#r-epargne").value);
+  let sum = 0; draftCats.forEach(c => sum += Number(c.budget)||0);
+  const dispo = rev - ep, diff = dispo - sum;
+  $("#r-check").innerHTML = `Revenu − épargne = <b class="num">${fmt(dispo)}</b> · plafonds = <b class="num">${fmt(sum)}</b> · ` +
+    (diff >= 0 ? `<span style="color:var(--ok);font-weight:700">marge ${fmt(diff)}</span>` : `<span style="color:var(--bad);font-weight:700">il manque ${fmt(-diff)} : baisse des plafonds ou l'épargne</span>`);
+}
+
+function renderTabs(){
+  ["jour","secours","histo","reglages"].forEach(k => {
+    $("#t-"+k).hidden = tab !== k;
+    $("#tab-"+k).setAttribute("aria-selected", tab === k);
+  });
+}
+
+function render(){
+  const c = compute();
+  const note = $("#demo-note");
+  const notes = [];
+  if(!settingsExists) notes.push("<b>Bienvenue !</b> Va dans <b>Réglages</b> pour saisir ton objectif, ton revenu et tes budgets. Rien n'est enregistré tant que tu n'as pas appuyé sur « Enregistrer les réglages ».");
+  else if(backupDue()) notes.push("<b>Pense à sauvegarder</b> : Réglages > Sauvegarde. Si tu désinstalles l'application, tout est perdu sans sauvegarde.");
+  if(readOnly) notes.push("<b>Lecture seule</b> : tu n'as pas les droits pour modifier ce budget.");
+  if(S.exemple || MOVES.some(x => x.exemple)) notes.push("<b>Chiffres d'exemple</b> : remplace-les dans Réglages, puis efface les exemples dans Historique.");
+  note.innerHTML = notes.join("<br>"); note.hidden = !notes.length;
+  renderHero(c); renderReste(c); renderToday(c); renderSplit(c); renderCreances(); renderChips(); renderCats(c); renderBilan();
+  renderPlan(c); renderMenu(c); renderMindset(c); renderSim(c); renderHisto(); renderReglages();
+  const dot = c.D > 0 ? `<span class="dot" aria-label="dépassement"></span>` : "";
+  $("#tab-secours").innerHTML = "Plan B" + dot;
+  renderTabs();
+}
+
+/* ---------- Écritures ---------- */
+let chain = Promise.resolve();
+function handleErr(e){
+  const code = e && e.code;
+  if(code === "invalid_argument" || code === "not_granted"){ readOnly = true; toast("Modification refusée : ce budget est en lecture seule pour toi."); render(); }
+  else if(code === "quota_exceeded"){ toast("Stockage plein : supprime d'anciens mouvements pour continuer."); }
+  else toast("Enregistrement impossible pour le moment, réessaie dans un instant.");
+}
+function saveSettings(msg){
+  const data = clone(S);
+  render();
+  if(!db){ if(msg) toast(msg); return Promise.resolve(); }
+  chain = chain.then(() => db.doc("budget/settings").set(data)).then(() => { if(msg) toast(msg); }).catch(handleErr);
+  return chain;
+}
+async function addMove(obj){
+  if(!db){ MOVES.push(Object.assign({id:"local-"+Date.now()}, obj)); render(); return; }
+  try{ await db.collection("mouvements").add(obj); }catch(e){ handleErr(e); throw e; }
+}
+async function delMove(id){
+  if(!db){ MOVES = MOVES.filter(x => x.id !== id); render(); return; }
+  try{ await db.doc("mouvements/"+id).delete(); }catch(e){ handleErr(e); }
+}
+
+/* ---------- Événements ---------- */
+document.addEventListener("click", async ev => {
+  const b = ev.target.closest("button"); if(!b) return;
+  if(b.dataset.tab){ tab = b.dataset.tab; try{ localStorage.setItem("tirelire.tab", tab); }catch(e){} pendingDel = null; renderTabs(); window.scrollTo({top:0}); return; }
+  if(b.dataset.go){ tab = b.dataset.go; try{ localStorage.setItem("tirelire.tab", tab); }catch(e){} renderTabs(); window.scrollTo({top:0}); return; }
+  if(b.dataset.type){ formType = b.dataset.type; disarmPay(); renderChips(); return; }
+  if(b.dataset.cat){ formCat = b.dataset.cat; disarmPay(); renderChips(); return; }
+  if(b.id === "menu-next"){ menuShift++; renderMenu(compute()); return; }
+  if(b.dataset.del){
+    const id = b.dataset.del;
+    if(pendingDel === id){ pendingDel = null; await delMove(id); toast("Mouvement supprimé"); }
+    else { pendingDel = id; renderHisto(); }
+    return;
+  }
+  if(b.dataset.apply){
+    const c = compute(); const P = plans(c); if(!P) return;
+    const id = b.dataset.apply; const plan = P[id];
+    const prev = (S.ajustement && S.ajustement.mois === c.m) ? S.ajustement : null;
+    const limites = Object.assign({}, prev ? prev.limites : {}, plan.limites);
+    const aj = {mois:c.m, limites, plan:id, le:c.t, montant:c.D};
+    if(prev && prev.ancienneEcheance) aj.ancienneEcheance = prev.ancienneEcheance;
+    if(id === "B"){
+      const nm = nextMonth(c.m);
+      const add = plan.report;
+      S.report = (S.report && S.report.mois === nm) ? {mois:nm, montant:S.report.montant + add} : {mois:nm, montant:add};
+      aj.report = add;
+    }
+    if(id === "C" && plan.nouvelleDate){
+      if(!aj.ancienneEcheance) aj.ancienneEcheance = S.objectif.echeance;
+      S.objectif.echeance = plan.nouvelleDate;
+    }
+    S.ajustement = aj;
+    await saveSettings("Plan appliqué. Tes plafonds sont mis à jour.");
+    tab = "jour"; renderTabs(); window.scrollTo({top:0});
+    return;
+  }
+  if(b.dataset.undo !== undefined){
+    const aj = S.ajustement; if(!aj) return;
+    if(aj.ancienneEcheance) S.objectif.echeance = aj.ancienneEcheance;
+    if(aj.report && S.report && S.report.mois === nextMonth(aj.mois)){
+      const left = S.report.montant - aj.report;
+      S.report = left > 0 ? {mois:S.report.mois, montant:left} : null;
+    }
+    S.ajustement = null;
+    await saveSettings("Plan annulé.");
+    return;
+  }
+  if(b.id === "r-addcat"){ syncDraft(); draftCats.push({id:"c"+Date.now().toString(36), nom:"Nouvelle catégorie", budget:0, type:"libre"}); reglagesDirty = true; renderCatRows(); updateCheck(); return; }
+  if(b.dataset.rmcat !== undefined){ syncDraft(); draftCats.splice(Number(b.dataset.rmcat),1); reglagesDirty = true; renderCatRows(); updateCheck(); return; }
+  if(b.dataset.echeance){
+    S.objectif.echeance = b.dataset.echeance;
+    reglagesDirty = false;
+    await saveSettings("Échéance mise au " + shortDate(b.dataset.echeance));
+    return;
+  }
+  if(b.dataset.sweep){
+    const act = b.dataset.sweep;
+    if(act === "ask"){ pendingSweep = true; renderReste(compute()); return; }
+    if(act === "cancel"){ pendingSweep = false; renderReste(compute()); return; }
+    const c = compute();
+    if(sweepOf(c.m)){ pendingSweep = false; render(); return; }
+    const items = sweepItems(c); const tot = items.reduce((a,x) => a + x.r, 0);
+    if(!(tot > 0)){ pendingSweep = false; render(); return; }
+    const detail = {}; items.forEach(x => detail[x.k.id] = x.r);
+    b.disabled = true; pendingSweep = false;
+    try{
+      await addMove({type:"epargne", montant:tot, note:"Restes du cycle ("+items.map(x => x.k.nom).join(", ")+")", date:c.t, ts:Date.now(), reste:c.m, detail, extra:true});
+      toast(fmt(tot)+" versés dans l'épargne");
+    }catch(e){ render(); }
+    return;
+  }
+  if(b.dataset.cr){
+    const act = b.dataset.cr, id = b.dataset.id;
+    if(act === "cancel"){ pendingCr = null; renderCreances(); return; }
+    if(act === "recu" || act === "del"){ pendingCr = {id, act}; renderCreances(); return; }
+    const x = CREANCES.find(y => y.id === id); pendingCr = null;
+    if(!x){ renderCreances(); return; }
+    b.disabled = true;
+    if(act === "del-go"){
+      if(!db){ CREANCES = CREANCES.filter(y => y.id !== id); render(); return; }
+      try{ await db.doc("creances/"+id).delete(); toast("Créance supprimée"); }catch(e){ handleErr(e); renderCreances(); }
+      return;
+    }
+    if(act === "recu-go"){
+      const t = todayStr(), m = Number(x.montant)||0;
+      try{
+        await addMove({type:"epargne", montant:m, note:"Créance remboursée"+(x.note ? " : "+String(x.note).slice(0,80) : ""), date:t, ts:Date.now(), creance:id, extra:true});
+      }catch(e){ renderCreances(); return; }
+      if(!db){ x.statut = "recue"; x.recueLe = t; render(); }
+      else { try{ await db.doc("creances/"+id).update({statut:"recue", recueLe:t}); }catch(e){ handleErr(e); } }
+      toast(fmt(m)+" reçus et versés dans l'épargne");
+    }
+    return;
+  }
+  if(b.id === "cr-add"){
+    if(readOnly) return;
+    const montant = toNum($("#cr-montant").value);
+    if(montant <= 0){ toast("Indique le montant qu'on te doit."); $("#cr-montant").focus(); return; }
+    const obj = {montant, note:$("#cr-note").value.trim().slice(0,80), statut:"attendue", ts:Date.now()};
+    const d = $("#cr-date").value; if(d) obj.date = d;
+    b.disabled = true;
+    try{
+      if(!db){ CREANCES.push(Object.assign({id:"local-"+Date.now()}, obj)); }
+      else await db.collection("creances").add(obj);
+      $("#cr-montant").value = ""; $("#cr-note").value = ""; $("#cr-date").value = "";
+      toast("Créance de "+fmt(montant)+" notée");
+    }catch(e){ handleErr(e); }
+    b.disabled = false; render();
+    return;
+  }
+  if(b.dataset.payask){ armPay(b.dataset.payask); render(); return; }
+  if(b.dataset.paycancel !== undefined){ disarmPay(); render(); return; }
+  if(b.dataset.pay){
+    const c = compute(); const id = b.dataset.pay; const m = c.bud[id];
+    if(pendingPay !== id || !(m > 0) || c.spent[id] > 0){ disarmPay(); render(); return; }
+    b.disabled = true;
+    disarmPay();
+    try{ await addMove({type:"depense", cat:id, montant:m, note:"Payé", date:c.t, ts:Date.now()}); toast(catName(id)+" payé : "+fmt(m)); }catch(e){ render(); }
+    return;
+  }
+  if(b.id === "r-addlaoka"){ syncLaokas(); draftLaokas.push({id:"l"+Date.now().toString(36), nom:"Nouveau laoka", detail:"", prix:0}); reglagesDirty = true; renderLaokaRows(); return; }
+  if(b.dataset.rmlaoka !== undefined){ syncLaokas(); draftLaokas.splice(Number(b.dataset.rmlaoka),1); reglagesDirty = true; renderLaokaRows(); return; }
+  if(b.id === "riz-add"){
+    const kg = parseFloat(String($("#riz-kg").value).replace(",", "."));
+    if(!(kg > 0)){ toast("Indique le nombre de kilos achetés."); return; }
+    const t = todayStr(); const ri = rizInfo(t);
+    const r = S.riz || {joursParKg:3, prixKg:4000};
+    const noter = $("#riz-dep").checked;
+    S.riz = {stockKg:Math.round(((ri ? ri.restant : 0) + kg)*10)/10, depuis:t, joursParKg:Number(r.joursParKg)||3, prixKg:Number(r.prixKg)||0};
+    b.disabled = true;
+    await saveSettings("Stock de riz mis à jour : "+S.riz.stockKg.toString().replace(".",",")+" kg");
+    if(noter && S.riz.prixKg > 0 && catById("alim")){
+      try{ await addMove({type:"depense", cat:"alim", montant:Math.round(kg*S.riz.prixKg), note:"Riz "+String(kg).replace(".",",")+" kg", date:t, ts:Date.now()}); }catch(e){}
+    }
+    b.disabled = false;
+    return;
+  }
+  if(b.id === "ex-clear"){
+    if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Confirmer : effacer les exemples"; return; }
+    b.disabled = true;
+    const ex = MOVES.filter(x => x.exemple);
+    for(const x of ex){ await delMove(x.id); }
+    if(S.exemple){ S.exemple = false; await saveSettings(); }
+    b.disabled = false; b.dataset.armed = ""; b.textContent = "Effacer les exemples";
+    toast("Exemples effacés. À toi de jouer !");
+    return;
+  }
+});
+
+$("#add").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if(readOnly) return;
+  const k0 = catById(formCat);
+  if(formType === "depense" && isUnique(k0)){
+    const c = compute(), m = c.bud[k0.id];
+    if(c.spent[k0.id] > 0){ toast(k0.nom + " est déjà payé pour ce cycle."); return; }
+    if(!(m > 0)){ toast(k0.nom + " n'est pas à payer ce cycle."); return; }
+    if(pendingPay !== k0.id){ armPay(k0.id); renderChips(); return; }
+    disarmPay();
+  }
+  const montant = (formType === "depense" && isUnique(k0)) ? compute().bud[k0.id] : toNum($("#f-montant").value);
+  if(montant <= 0){ toast("Indique un montant en Ariary."); $("#f-montant").focus(); return; }
+  const date = $("#f-date").value || todayStr();
+  const obj = {type:formType, montant, note:$("#f-note").value.trim().slice(0,120), date, ts:Date.now()};
+  if(formType === "depense") obj.cat = formCat || "autre";
+  const btn = $("#f-submit"); btn.disabled = true;
+  try{
+    await addMove(obj);
+    if(!$("#f-montant").readOnly) $("#f-montant").value = "";
+    $("#f-note").value = "";
+    toast(formType === "depense" ? "Dépense de "+fmt(montant)+" notée" : fmt(montant)+" ajoutés à l'épargne");
+  }catch(e){}
+  renderChips();
+});
+$("#f-montant").addEventListener("input", e => {
+  const n = toNum(e.target.value); e.target.value = n ? n.toLocaleString("fr-FR").replace(/[  ]/g," ") : "";
+});
+$("#cr-montant").addEventListener("input", e => {
+  const n = toNum(e.target.value); e.target.value = n ? n.toLocaleString("fr-FR").replace(/[  ]/g," ") : "";
+});
+$("#sim").addEventListener("input", e => {
+  const n = toNum(e.target.value); e.target.value = n ? n.toLocaleString("fr-FR").replace(/[  ]/g," ") : "";
+  renderSim(compute());
+});
+$("#h-mois").addEventListener("change", e => { histMonth = e.target.value; pendingDel = null; renderHisto(); });
+$("#reglages").addEventListener("input", () => { reglagesDirty = true; updateCheck(); });
+$("#reglages").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if(readOnly) return;
+  syncDraft();
+  S.objectif = {nom:$("#r-nom").value.trim() || "Mon objectif", montant:toNum($("#r-montant").value), echeance:$("#r-echeance").value || S.objectif.echeance};
+  S.pourquoi = $("#r-pourquoi").value.trim();
+  S.dejaEpargne = toNum($("#r-deja").value);
+  S.revenuMensuel = toNum($("#r-revenu").value);
+  S.epargneMensuelle = toNum($("#r-epargne").value);
+  S.minAlimJour = toNum($("#r-min").value);
+  S.repasParJour = Number($("#r-rpj").value) || 2;
+  const dec = v => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : 0; };
+  S.riz = {stockKg:Math.max(0, dec($("#r-rizstock").value)), depuis:todayStr(), joursParKg:Math.max(0.5, dec($("#r-rizjours").value) || 3), prixKg:toNum($("#r-rizprix").value)};
+  syncLaokas();
+  S.laokas = draftLaokas.filter(l => (l.nom||"").trim()).map((l,i) => ({id:l.id || ("l"+Date.now().toString(36)+i), nom:l.nom.trim(), detail:(l.detail||"").trim(), prix:Number(l.prix)||0}));
+  S.jourPaie = Math.min(28, Math.max(1, toNum($("#r-paie").value) || 1));
+  S.categories = draftCats.map(c => { const o = {id:c.id, nom:(c.nom||"").trim() || "Sans nom", budget:Number(c.budget)||0, type:TYPES[c.type] ? c.type : "libre"}; if(/^\d{4}-\d{2}$/.test(c.fin||"")){ o.fin = c.fin; o.versEpargne = !!c.versEpargne; } if(/^\d{4}-\d{2}$/.test(c.debut||"")) o.debut = c.debut; if(c.progressif){ o.progressif = true; } if(c.note) o.note = c.note; if(c.source) o.source = c.source; o.unique = !!c.unique; ["nomCourt","gainSiRepousse","gainExplication"].forEach(f => { if(c[f] != null) o[f] = c[f]; }); return o; });
+  reglagesDirty = false;
+  await saveSettings("Réglages enregistrés");
+});
+
+/* ---------- Démarrage ---------- */
+$("#f-date").value = todayStr();
+render();
+
+
+/* ---------- Base locale (localStorage) : remplace la base Claude ---------- */
+const LocalDB = (function(){
+  const KEY = "tirelire.data.v1";
+  let store = {};
+  try{ store = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){ store = {}; }
+  const subs = [];
+  function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){ const er = new Error("quota"); er.code = "quota_exceeded"; throw er; } }
+  function notify(){ subs.slice().forEach(f => { try{ f(); }catch(e){} }); }
+  function mkSnap(path){ const has = Object.prototype.hasOwnProperty.call(store, path); return {exists:has, data:() => has ? clone(store[path]) : undefined}; }
+  function list(name, ord, lim){
+    const pre = name + "/";
+    let ids = Object.keys(store).filter(k => k.indexOf(pre) === 0 && k.indexOf("/", pre.length) < 0).map(k => k.slice(pre.length));
+    if(ord){ ids.sort((a,b) => { const x = store[pre+a][ord.f], y = store[pre+b][ord.f]; const c = x < y ? -1 : x > y ? 1 : 0; return ord.d === "desc" ? -c : c; }); }
+    if(lim) ids = ids.slice(0, lim);
+    return {empty: !ids.length, docs: ids.map(id => ({id, data:() => clone(store[pre+id])}))};
+  }
+  function write(fn){ return new Promise((res, rej) => { const bak = JSON.stringify(store); try{ fn(); persist(); notify(); res(); }catch(e){ store = JSON.parse(bak); rej(e); } }); }
+  function watch(get, cb){ const f = () => cb(get()); subs.push(f); f(); return () => { const k = subs.indexOf(f); if(k >= 0) subs.splice(k,1); }; }
+  function query(name, ord, lim){ return {orderBy:(f,d) => query(name, {f, d}, lim), limit:n => query(name, ord, n), onSnapshot:(cb) => watch(() => list(name, ord, lim), cb)}; }
+  return {
+    doc: path => ({
+      set: data => write(() => { store[path] = clone(data); }),
+      update: patch => write(() => { store[path] = Object.assign({}, store[path] || {}, clone(patch)); }),
+      delete: () => write(() => { delete store[path]; }),
+      onSnapshot: cb => watch(() => mkSnap(path), cb)
+    }),
+    collection: name => Object.assign(query(name), {
+      add: obj => { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); return write(() => { store[name+"/"+id] = clone(obj); }).then(() => ({id})); }
+    }),
+    dump: () => JSON.stringify({app:"tirelire-ariary", version:1, date:new Date().toISOString(), data:store}),
+    restore: txt => { const o = JSON.parse(txt); if(!o || o.app !== "tirelire-ariary" || typeof o.data !== "object") throw new Error("format"); store = o.data; persist(); notify(); },
+    count: () => Object.keys(store).length
+  };
+})();
+
+/* ---------- Sauvegarde ---------- */
+function lastBackup(){ try{ return Number(localStorage.getItem("tirelire.lastBackup")) || 0; }catch(e){ return 0; } }
+function backupDue(){ return MOVES.length > 0 && Date.now() - lastBackup() > 14*86400000; }
+function doExport(){
+  const txt = LocalDB.dump();
+  $("#bk-text").value = txt;
+  try{ localStorage.setItem("tirelire.lastBackup", String(Date.now())); }catch(e){}
+  try{
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt], {type:"application/json"}));
+    a.download = "tirelire-sauvegarde-" + todayStr() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){}
+  toast("Sauvegarde prête. Copie aussi le texte ci-dessous pour la garder.");
+  render();
+}
+$("#bk-export").addEventListener("click", doExport);
+$("#bk-copy").addEventListener("click", async () => {
+  const ta = $("#bk-text"); if(!ta.value) doExport();
+  try{ await navigator.clipboard.writeText(ta.value); toast("Texte copié"); }
+  catch(e){ ta.select(); try{ document.execCommand("copy"); toast("Texte copié"); }catch(_){ toast("Sélectionne le texte et copie-le à la main"); } }
+});
+$("#bk-import").addEventListener("click", () => {
+  const b = $("#bk-import"), txt = $("#bk-text").value.trim();
+  if(!txt){ toast("Colle d'abord le texte d'une sauvegarde"); return; }
+  if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Confirmer : remplacer mes données actuelles"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Restaurer cette sauvegarde"; }, 6000); return; }
+  b.dataset.armed = ""; b.textContent = "Restaurer cette sauvegarde";
+  try{ LocalDB.restore(txt); toast("Sauvegarde restaurée"); }catch(e){ toast("Ce texte n'est pas une sauvegarde valide"); }
+});
+
+/* ---------- Code PIN ---------- */
+function pinHash(p){ let h = 5381; const s = "tirelire|" + p; for(let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); }
+function getPin(){ try{ return localStorage.getItem("tirelire.pin") || ""; }catch(e){ return ""; } }
+function pinState(){ $("#pin-state").textContent = getPin() ? "Un code est actif : il sera demandé à chaque ouverture." : "Aucun code : l'application s'ouvre directement."; }
+function lockIfNeeded(){ if(getPin()){ $("#lock").hidden = false; $("#lock-in").value = ""; setTimeout(() => $("#lock-in").focus(), 50); } }
+function tryUnlock(){
+  if(pinHash($("#lock-in").value) === getPin()){ $("#lock").hidden = true; $("#lock-err").textContent = ""; }
+  else { $("#lock-err").textContent = "Code incorrect"; $("#lock-in").value = ""; }
+}
+$("#lock-ok").addEventListener("click", tryUnlock);
+$("#lock-in").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); tryUnlock(); } });
+$("#pin-set").addEventListener("click", () => {
+  const v = $("#pin-new").value.trim();
+  if(!/^\d{4,6}$/.test(v)){ toast("Le code doit avoir 4 à 6 chiffres"); return; }
+  try{ localStorage.setItem("tirelire.pin", pinHash(v)); }catch(e){ toast("Impossible d'enregistrer le code"); return; }
+  $("#pin-new").value = ""; pinState(); toast("Code enregistré");
+});
+$("#pin-off").addEventListener("click", () => { try{ localStorage.removeItem("tirelire.pin"); }catch(e){} pinState(); toast("Code retiré"); });
+document.addEventListener("visibilitychange", () => { if(document.hidden) lockIfNeeded(); });
+pinState(); lockIfNeeded();
+
+/* ---------- Branchement ---------- */
+db = LocalDB;
+db.doc("budget/settings").onSnapshot(snap => {
+  if(snap.exists){
+    const data = snap.data();
+    S = Object.assign(clone(DEFAULTS), clone(data));
+    S.objectif = Object.assign(clone(DEFAULTS.objectif), data.objectif || {});
+    if(!Array.isArray(S.categories) || !S.categories.length) S.categories = clone(DEFAULTS.categories);
+    settingsExists = true;
+  } else { S = clone(DEFAULTS); settingsExists = false; }
+  render();
+}, handleErr);
+db.collection("mouvements").onSnapshot(snap => { MOVES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); }, handleErr);
+db.collection("creances").onSnapshot(snap => { CREANCES = snap.docs.map(x => Object.assign({id:x.id}, x.data())); render(); }, () => {});
+db.collection("bilans").orderBy("date","desc").limit(1).onSnapshot(snap => { BILAN = snap.empty ? null : snap.docs[0].data(); renderBilan(); }, () => {});
+})();
+</script>
+
+
+</body></html>
