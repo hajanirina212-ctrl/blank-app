@@ -934,7 +934,7 @@ var SKY_FS = [
   '  vec3 zenith = vec3(0.07, 0.11, 0.30), mid = vec3(0.45, 0.30, 0.45), horizon = vec3(1.0, 0.50, 0.22), below = vec3(0.20, 0.12, 0.12);',
   '  vec3 col = mix(horizon, mid, smoothstep(0.0, 0.22, h));',
   '  col = mix(col, zenith, smoothstep(0.18, 0.85, h));',
-  '  col = mix(col, below, smoothstep(0.0, -0.25, h));',
+  '  col = mix(col, below, (1.0 - smoothstep(-0.25, 0.0, h)));',
   '  float sd = max(dot(d, sunDir), 0.0);',
   '  col += vec3(1.0, 0.55, 0.25) * pow(sd, 6.0) * 0.55 + vec3(1.0, 0.8, 0.55) * pow(sd, 350.0) * 6.0;',
   '  if (h > 0.0) {',
@@ -959,7 +959,7 @@ var FinalShader = {
     'vec3 toSRGB(vec3 c){ return mix(pow(c, vec3(0.41666)) * 1.055 - 0.055, c * 12.92, vec3(lessThanEqual(c, vec3(0.0031308)))); }',
     'void main(){',
     '  vec3 c = toSRGB(max(texture2D(tDiffuse, vUv).rgb, 0.0));',
-    '  float v = smoothstep(0.95, 0.3, length(vUv - 0.5) * 1.3); c *= mix(1.0 - vignette, 1.0, v);',
+    '  float v = (1.0 - smoothstep(0.3, 0.95, length(vUv - 0.5) * 1.3)); c *= mix(1.0 - vignette, 1.0, v);',
     '  c += (rnd(vUv * 731.0 + fract(time)) - 0.5) * grain;',
     '  gl_FragColor = vec4(c, 1.0);',
     '}'
