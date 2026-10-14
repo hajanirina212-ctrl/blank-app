@@ -11,7 +11,14 @@ défendez-les face aux pannes, grèves, contrôles et **concurrents**. Noms, per
 - Toucher un bâtiment accélère son cycle de 1 s. Glissez pour déplacer la ville, pincez / molette pour zoomer.
 - **Paliers** (niveaux 25, 50, 100…) : revenus ×2 ; la boutique s'agrandit (maison → immeuble → hôtel doré). Un **quartier complet** (3 commerces) : revenus ×2.
 - Bouton **×1 / ×10 / ×100 / Max** : nombre de niveaux achetés d'un coup.
-- **Gains hors ligne** (jusqu'à 8 h) au retour : « Bon retour, patron ! ».
+- **Gains hors ligne** (50 % d'efficacité, jusqu'à 4 h) au retour : « Bon retour, patron ! ».
+
+## Votre vie d'entrepreneur (en euros)
+- Vous démarrez à **25 ans avec 2 500 € d'économies** : de quoi ouvrir un premier café (2 000 €). **1 jour = 10 s, 1 mois = 5 min, 1 an = 1 h de jeu** ; vous vieillissez.
+- Chaque fin de mois, la **vie courante** (≈ 900 €, qui monte avec votre train de vie) est prélevée. Chaque année, **12 % d'impôts** sur les revenus. Si la caisse est vide, le **découvert** devient une **dette** (1,5 % d'intérêts par mois, 30 % de vos revenus la remboursent).
+- Touchez la case de trésorerie en haut pour ouvrir **💶 Finances** : bilan du mois, charges à prévoir, **prêt bancaire** (plafonné selon vos revenus) et remboursement.
+- **Rythme réaliste** : les gains hors ligne sont réduits de moitié (4 h max), les récompenses (VIP, quêtes, dés) restent modestes, et il faut des jours de jeu pour tout posséder.
+- **Votre pion** (un patron en costume et haut-de-forme) se promène sur l'avenue qui fait le tour de la ville : touchez le bouton rond 🎲 pour lancer les dés et vous le **voyez avancer case par case**, la caméra le suit.
 
 ## La vraie vie d'un patron
 | Problème | Effet | Solution |

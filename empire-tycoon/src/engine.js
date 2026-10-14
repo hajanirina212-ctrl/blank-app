@@ -23,14 +23,16 @@ var ROWS = [
   ['market', 'Supermarché', 1.10, 60], ['pharmacy', 'Pharmacie', 1.09, 120], ['resto', 'Restaurant', 1.085, 240],
   ['hotel', 'Hôtel', 1.08, 480], ['agency', 'Agence immobilière', 1.075, 900], ['tower', 'Tour d\'affaires', 1.07, 1800]
 ];
+var START = 2500, DAY_S = 10, LIVING = 900, TAX = 0.12, INTEREST = 0.015, GARNISH = 0.3;   // épargne de départ, 1 jour = 10 s, vie courante /mois, impôt annuel, intérêt mensuel, part des revenus qui rembourse la dette
+var B0 = 2000, RATIO = 8, PB0 = 120, PBG = 1.8;           // prix du 1er commerce, ratio de prix, temps de remboursement (s)
 var BIZ = ROWS.map(function (r, i) {
-  var b = 4 * Math.pow(40, i), payback = 8 * Math.pow(1.9, i);   // prix du 1er niveau (×40 par commerce) ; temps de remboursement d'un niveau (s)
+  var b = B0 * Math.pow(RATIO, i), payback = PB0 * Math.pow(PBG, i);   // prix du 1er niveau (×40 par commerce) ; temps de remboursement d'un niveau (s)
   return { id: r[0], name: r[1], dist: Math.floor(i / 3), b: b, g: r[2], t: r[3], r: (b / payback) * r[3] };
 });
 var MS = [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1250, 1500, 2000, 2500, 3000];   // paliers : revenu ×2
 var SPD_MS = [100, 300, 500, 800, 1200];                                                              // paliers : cycle ×2 plus rapide
 var TIER_MS = [25, 50, 100, 200];                                                                      // paliers visibles (maisons → hôtel)
-var MAX_ROLLS = 5, ROLL_EVERY = 240000, OFFLINE_CAP = 8 * 3600;
+var MAX_ROLLS = 5, ROLL_EVERY = 240000, OFFLINE_CAP = 4 * 3600, OFFLINE_EFF = 0.5;
 
 /* ---------- Conseillers (portraits générés par le code côté interface) ---------- */
 var RARITY = [{ n: 'Commun', w: 70 }, { n: 'Rare', w: 22 }, { n: 'Épique', w: 7 }, { n: 'Légendaire', w: 1 }];
@@ -58,14 +60,14 @@ var BOARD = [
   { k: 'park', t: 'Parc' }, { k: 'cash', m: 900, t: 'Gros lot' }, { k: 'chance', t: 'Fortune' }, { k: 'cash', m: 1500, t: 'Jackpot' }
 ];
 var CARDS = [
-  { k: 'cash', m: 600, t: 'Un client fortuné laisse un énorme pourboire : 10 minutes de revenus !' },
+  { k: 'cash', m: 600, t: 'Un client fortuné laisse un gros pourboire : 2,5 minutes de revenus !' },
   { k: 'boost', b: 'rev', t: 'Un article élogieux dans la presse : revenus ×2 pendant 60 s !' },
   { k: 'adv', t: 'Un talent frappe à votre porte : un conseiller rejoint votre équipe !' },
   { k: 'tax', p: 0.02, t: 'Taxe foncière : vous payez 2 % de votre trésorerie.' },
   { k: 'move', n: 3, t: 'Voyage d\'affaires : avancez de 3 cases !' },
-  { k: 'cash', m: 300, t: 'Remboursement d\'un trop-perçu : 5 minutes de revenus.' },
+  { k: 'cash', m: 300, t: 'Remboursement d\'un trop-perçu : 1 minute de revenus.' },
   { k: 'boost', b: 'spd', t: 'Les livraisons sont en avance : cycles ×2 pendant 30 s !' },
-  { k: 'cash', m: 1200, t: 'Un investisseur rachète vos parts : 20 minutes de revenus !' }
+  { k: 'cash', m: 1200, t: 'Un investisseur rachète des parts : 5 minutes de revenus !' }
 ];
 /* ---------- Concurrents : des rivaux qui ouvrent à côté de chez vous et courent après la première place ---------- */
 var RIVALS = [
@@ -73,7 +75,7 @@ var RIVALS = [
 ];
 var COMP_HIT = 0.65, COMP_LIFE = 300000;
 var GIFTS = {
-  BIENVENUE: { cash: 1800, t: 'Bienvenue ! 30 minutes de revenus offertes.' },
+  BIENVENUE: { cash: 300, t: 'Bienvenue ! 5 minutes de revenus offertes.' },
   EMPIRE: { adv: 1, t: 'Un conseiller vous est offert !' },
   TYCOON: { rolls: 3, t: '3 lancers de dés offerts !' }
 };
@@ -83,8 +85,9 @@ var SUF = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc', 'Ud
 function fmt(n) {
   if (!isFinite(n)) return '∞';
   if (n < 0) return '-' + fmt(-n);
-  if (n < 1) return n.toFixed(2);
-  if (n < 1000) return String(Math.round(n * 100) / 100);
+  if (n < 10) return n.toFixed(2);
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1e6) return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
   var e = Math.floor(Math.log10(n) / 3);
   if (e >= SUF.length) return n.toExponential(2).replace('e+', 'e');
   var v = n / Math.pow(1000, e);
@@ -105,15 +108,15 @@ function randName() { var a = ['Audacieux', 'Rusé', 'Brillant', 'Fortuné', 'Ma
 function newState() {
   var now = clock();
   return {
-    v: 1, cash: 4, run: 0, life: 0, stars: 0,
+    v: 1, cash: START, run: 0, life: 0, stars: 0,
     biz: BIZ.map(function () { return { n: 0, p: 0 }; }), up: BIZ.map(function () { return 0; }), qdone: BIZ.map(function () { return 0; }),
     adv: {}, eq: [], slots: 2, hired: 0,
     quests: [], qseq: 1,
     dice: { pos: 0, rolls: 3, next: now + ROLL_EVERY, jail: 0 },
     boost: { revEnd: 0, spdEnd: 0, revCd: 0, spdCd: 0 },
-    vip: { next: now + 120000, cur: null },
+    vip: { next: now + 480000, cur: null },
     ev: { type: null, until: 0, next: now + 240000 },
-    news: [], comp: DISTRICTS.map(function () { return null; }), compNext: now + 420000, rivalW: [0, 0, 0], rivalNews: 0, inc: BIZ.map(function () { return null; }), incNext: now + 200000, mult: 1, gifts: {}, name: randName(),
+    day: 0, month: 0, mInc: 0, lastMInc: 0, yInc: 0, debt: 0, bill: null, news: [], comp: DISTRICTS.map(function () { return null; }), compNext: now + 420000, rivalW: [0, 0, 0], rivalNews: 0, inc: BIZ.map(function () { return null; }), incNext: now + 200000, mult: 1, gifts: {}, name: randName(),
     set: { sound: true, music: true, quality: 'auto' }, last: now, t0: now, tut: 0
   };
 }
@@ -163,7 +166,10 @@ function maxUnits(i) {
 function buyCount(i) { var m = S.mult; if (m === 0) return Math.max(1, maxUnits(i)); return m; }
 
 /* ---------- Actions ---------- */
-function gain(x) { if (!isFinite(x)) return; S.cash = Math.min(S.cash + x, 1e300); S.run += x; S.life += x; }
+function gain(x) {
+  if (!isFinite(x)) return; var pay = 0; if (S.debt > 0) { pay = Math.min(S.debt, x * GARNISH); S.debt -= pay; }
+  S.cash = Math.min(S.cash + x - pay, 1e300); S.run += x; S.life += x; S.mInc += x; S.yInc += x;
+}
 function buy(i) {
   var b = S.biz[i]; if (b.n > 0) return { ok: false, msg: 'Déjà acheté' };
   if (i > 0 && S.biz[i - 1].n <= 0) return { ok: false, msg: 'Achetez d\'abord le commerce précédent' };
@@ -212,7 +218,7 @@ function advPerk(a, count) { var f = 1 + 0.5 * (count - 1), txt = PERK[a.k] + Ma
 function boostState(w) { var e = w === 'rev' ? S.boost.revEnd : S.boost.spdEnd, c = w === 'rev' ? S.boost.revCd : S.boost.spdCd, n = clock(); return { on: e > n, left: Math.max(0, (e - n) / 1000), cd: Math.max(0, (c - n) / 1000) }; }
 function useBoost(w) {
   var st = boostState(w); if (st.on || st.cd > 0) return false; var n = clock();
-  if (w === 'rev') { S.boost.revEnd = n + 60000; S.boost.revCd = n + 600000; } else { S.boost.spdEnd = n + 30000; S.boost.spdCd = n + 480000; }
+  if (w === 'rev') { S.boost.revEnd = n + 60000; S.boost.revCd = n + 1200000; } else { S.boost.spdEnd = n + 30000; S.boost.spdCd = n + 900000; }
   emit('boost', { w: w }); return true;
 }
 function vipAccept() {
@@ -222,7 +228,7 @@ function vipAccept() {
   S.vip.cur = null; scheduleVip(); emit('vipdone', out); return out;
 }
 function vipDecline() { S.vip.cur = null; scheduleVip(); }
-function scheduleVip() { S.vip.next = clock() + (150 + Math.random() * 150) * 1000 * (1 - Math.min(0.5, totals().vip)); }
+function scheduleVip() { S.vip.next = clock() + (420 + Math.random() * 300) * 1000 * (1 - Math.min(0.5, totals().vip)); }
 var EVENTS = [
   { type: 'boom', ms: 90000, t: 'Boom économique : revenus +50 % pendant 90 s !' },
   { type: 'sale', ms: 60000, t: 'Soldes immobiliers : coûts -25 % pendant 60 s !' },
@@ -241,9 +247,9 @@ function rollDice() {
 }
 function landOn(pos, card) {
   var t = card || BOARD[pos], ps = Math.max(totalPerSec(), 1), out = { k: t.k, text: '' };
-  if (t.k === 'start') { out.amt = Math.max(ps * 300, 20); gain(out.amt); out.text = 'Case Départ : prime de ' + fmt(out.amt) + ' $ !'; }
-  else if (t.k === 'cash') { out.amt = Math.max(ps * t.m, 20); gain(out.amt); out.text = 'Vous encaissez ' + fmt(out.amt) + ' $ !'; }
-  else if (t.k === 'tax') { out.amt = S.cash * t.p; S.cash -= out.amt; out.text = 'Impôts : -' + fmt(out.amt) + ' $.'; }
+  if (t.k === 'start') { out.amt = Math.max(ps * 75, 20); gain(out.amt); out.text = 'Case Départ : prime de ' + fmt(out.amt) + ' € !'; }
+  else if (t.k === 'cash') { out.amt = Math.max(ps * t.m * 0.25, 20); gain(out.amt); out.text = 'Vous encaissez ' + fmt(out.amt) + ' € !'; }
+  else if (t.k === 'tax') { out.amt = S.cash * t.p; S.cash -= out.amt; out.text = 'Impôts : -' + fmt(out.amt) + ' €.'; }
   else if (t.k === 'boost') { var n = clock(); if (t.b === 'rev') { S.boost.revEnd = Math.max(S.boost.revEnd, n) + 60000; out.text = 'Boom : revenus ×2 pendant 60 s !'; } else { S.boost.spdEnd = Math.max(S.boost.spdEnd, n) + 30000; out.text = 'Turbo : cycles ×2 pendant 30 s !'; } }
   else if (t.k === 'adv') { var a = giveAdvisor(); out.adv = a; out.text = 'Recrue : ' + a.name + ' rejoint votre équipe !'; }
   else if (t.k === 'jail') { if (S.dice.rolls > 0) { S.dice.rolls--; out.text = 'Contrôle fiscal : vous perdez un lancer.'; } else out.text = 'Contrôle fiscal… heureusement, vous n\'aviez rien à perdre !'; }
@@ -262,7 +268,7 @@ function qProgress(q) {
 function qTitle(q) {
   if (q.t === 'up') return 'Améliorez ' + BIZ[q.i].name + ' ' + q.n + ' fois';
   if (q.t === 'own') return 'Possédez ' + q.n + ' commerce' + (q.n > 1 ? 's' : '');
-  if (q.t === 'earn') return 'Gagnez ' + fmt(q.n) + ' $';
+  if (q.t === 'earn') return 'Gagnez ' + fmt(q.n) + ' €';
   return BIZ[q.i].name + ' : atteignez le niveau ' + q.n;
 }
 function genQuest() {
@@ -270,10 +276,10 @@ function genQuest() {
   for (i = 0; i < S.biz.length; i++) if (S.biz[i].n > 0) own.push(i);
   while (tries++ < 20) {
     var kind = own.length === 0 ? 'own' : ['up', 'up', 'own', 'earn', 'tier'][Math.floor(Math.random() * 5)];
-    if (kind === 'own') { if (owned() >= BIZ.length) continue; q = { t: 'own', n: owned() + 1, rew: Math.max(ps * 900, price(Math.min(owned(), BIZ.length - 1), 1) * 0.5) }; }
-    else if (kind === 'up') { i = own[Math.floor(Math.random() * own.length)]; var n = [25, 50, 100, 200, 400][Math.min(4, S.qdone[i])]; q = { t: 'up', i: i, n: n, base: S.up[i], rew: ps * 600 * (n / 25) }; }
-    else if (kind === 'earn') { var tgt = Math.max(500, ps * 1800); q = { t: 'earn', n: tgt, base: S.run, rew: ps * 900 }; }
-    else { i = own[Math.floor(Math.random() * own.length)]; var nm = nextMs(S.biz[i].n); if (!nm) continue; q = { t: 'tier', i: i, n: nm, rew: ps * 1200 }; }
+    if (kind === 'own') { if (owned() >= BIZ.length) continue; q = { t: 'own', n: owned() + 1, rew: Math.max(ps * 150, price(Math.min(owned(), BIZ.length - 1), 1) * 0.2) }; }
+    else if (kind === 'up') { i = own[Math.floor(Math.random() * own.length)]; var n = [25, 50, 100, 200, 400][Math.min(4, S.qdone[i])]; q = { t: 'up', i: i, n: n, base: S.up[i], rew: ps * 120 * (n / 25) }; }
+    else if (kind === 'earn') { var tgt = Math.max(500, ps * 1800); q = { t: 'earn', n: tgt, base: S.run, rew: ps * 150 }; }
+    else { i = own[Math.floor(Math.random() * own.length)]; var nm = nextMs(S.biz[i].n); if (!nm) continue; q = { t: 'tier', i: i, n: nm, rew: ps * 200 }; }
     var dup = S.quests.some(function (o) { return o.t === q.t && o.i === q.i; }); if (dup) continue;
     q.id = S.qseq++; q.rew = Math.max(q.rew, 5); return q;
   }
@@ -302,7 +308,7 @@ function spawnIncident() {
   var n = clock(), r = Math.random();
   if (r < 0.25) {   // incidents instantanés : vol ou amende
     var loss = Math.min(S.cash * 0.08, Math.max(totalPerSec() * 90, 1)), theft = Math.random() < 0.5; if (loss < 1) return; S.cash -= loss;
-    addNews(theft ? 'Cambriolage ! Vous perdez ' + fmt(loss) + ' $ de caisse.' : 'Amende de l\'administration fiscale : -' + fmt(loss) + ' $.'); emit('incident', { instant: true, theft: theft, amt: loss }); return;
+    addNews(theft ? 'Cambriolage ! Vous perdez ' + fmt(loss) + ' € de caisse.' : 'Amende de l\'administration fiscale : -' + fmt(loss) + ' €.'); emit('incident', { instant: true, theft: theft, amt: loss }); return;
   }
   i = own[Math.floor(Math.random() * own.length)]; var T = INCIDENTS[Math.floor(Math.random() * INCIDENTS.length)], ps = rev(i) / time(i);
   S.inc[i] = { t: T.t, cost: Math.max(ps * T.m, 5), until: T.d ? n + T.d * 1000 : 0 };
@@ -333,6 +339,28 @@ function rivalsTick(dt, ps) {
   for (var k = 0; k < RIVALS.length; k++) S.rivalW[k] += dt * (ps * RIVALS[k].m + 0.05 * k);
 }
 
+/* ---------- Vie d'un entrepreneur : calendrier, charges de vie, impôts, dette ---------- */
+function age() { return 25 + Math.floor(S.day / 360); }
+function dateInfo() { var d = Math.floor(S.day); return { year: Math.floor(d / 360) + 1, month: Math.floor(d % 360 / 30) + 1, day: d % 30 + 1, age: 25 + Math.floor(d / 360) }; }
+function livingCost() { return LIVING + 0.02 * S.mInc; }
+function creditLimit() { return 5000 + 400 * totalPerSec(); }
+function charge(x) { if (S.cash >= x) S.cash -= x; else { S.debt += x - S.cash; S.cash = 0; } }
+function endMonth() {
+  var living = livingCost(), interest = S.debt * INTEREST, tax = 0; S.debt += interest; charge(living);
+  S.month++; if (S.month % 12 === 0) { tax = S.yInc * TAX; S.yInc = 0; charge(tax); }
+  S.bill = { m: S.month, inc: S.mInc, living: living, interest: interest, tax: tax }; S.lastMInc = S.mInc; S.mInc = 0;
+  addNews('📅 Mois ' + S.month + ' : vie courante -' + fmt(living) + ' €' + (interest > 1 ? ', intérêts -' + fmt(interest) + ' €' : '') + (tax ? ', impôts -' + fmt(tax) + ' €' : '') + '.');
+  emit('month', S.bill);
+}
+function borrow(x) {
+  var room = creditLimit() - S.debt; x = Math.min(x, room); if (x < 1) return { ok: false, msg: 'La banque refuse : endettement maximal atteint.' };
+  S.cash += x; S.debt += x; addNews('🏦 Prêt bancaire : +' + fmt(x) + ' € (intérêts ' + (INTEREST * 100) + ' % par mois).'); return { ok: true, amt: x };
+}
+function repay(x) {
+  x = Math.min(x, S.debt, S.cash); if (x < 1) return { ok: false, msg: S.debt < 1 ? 'Aucune dette.' : 'Pas assez d\'argent.' };
+  S.cash -= x; S.debt -= x; if (S.debt < 0.5) S.debt = 0; addNews('🏦 Remboursement : -' + fmt(x) + ' €.'); return { ok: true, amt: x };
+}
+
 /* ---------- Journal ---------- */
 function addNews(t) { S.news.unshift({ t: clock(), x: t }); if (S.news.length > 40) S.news.length = 40; emit('news', { x: t }); }
 
@@ -352,14 +380,15 @@ function tick(dt) {
   // dés rechargés avec le temps
   while (S.dice.rolls < MAX_ROLLS && n >= S.dice.next) { S.dice.rolls++; S.dice.next += ROLL_EVERY; emit('rolls', {}); }
   if (S.dice.rolls >= MAX_ROLLS) S.dice.next = n + ROLL_EVERY;
-  var rk0 = S.rankLast || 0; rivalsTick(dt, totalPerSec());
+  S.day += dt / DAY_S; while (S.month < Math.floor(S.day / 30)) endMonth();
+  rivalsTick(dt, totalPerSec());
   for (i = 0; i < S.comp.length; i++) if (S.comp[i] && n > S.comp[i].until) { addNews(RIVALS[S.comp[i].r].name + ' ferme sa boutique à ' + DISTRICTS[i].name + '.'); S.comp[i] = null; }
   if (n >= S.compNext && owned() >= 3) { S.compNext = n + (360 + Math.random() * 300) * 1000; spawnRival(); if (Math.random() < 0.3) { var vk = Math.floor(Math.random() * 3); if (S.rivalW[vk] > S.life * 0.5) { S.rivalW[vk] *= 0.7; addNews('📉 ' + RIVALS[vk].name + ' traverse un scandale : sa fortune chute !'); } } }
   var rk = myRank(); if (S.rankLast && rk !== S.rankLast && S.life > 5000) { addNews(rk < S.rankLast ? '🏆 Vous passez ' + rk + (rk === 1 ? 'er' : 'e') + ' au classement des empires !' : '⚠️ Un rival vous dépasse : vous êtes ' + rk + 'e.'); emit('rank', { rk: rk }); } S.rankLast = rk;
   if (n >= S.incNext && owned() >= 2) { S.incNext = n + (240 + Math.random() * 240) * 1000; spawnIncident(); }
   // VIP
   if (S.vip.cur && n > S.vip.cur.until) { S.vip.cur = null; scheduleVip(); }
-  if (!S.vip.cur && n >= S.vip.next && owned() >= 1) { S.vip.cur = { type: Math.random() < 0.55 ? 'investor' : 'manager', mins: 10 + Math.floor(Math.random() * 15), until: n + 45000 }; emit('vip', S.vip.cur); }
+  if (!S.vip.cur && n >= S.vip.next && owned() >= 1) { S.vip.cur = { type: Math.random() < 0.55 ? 'investor' : 'manager', mins: 2 + Math.floor(Math.random() * 4), until: n + 45000 }; emit('vip', S.vip.cur); }
   // événements de marché
   if (S.ev.type && n > S.ev.until) { S.ev.type = null; }
   if (!S.ev.type && n >= S.ev.next && owned() >= 2) {
@@ -370,16 +399,16 @@ function tick(dt) {
 function offline() {
   var n = clock(), secs = Math.max(0, (n - S.last) / 1000);
   if (secs < 60 || owned() === 0) return null;
-  var eff = Math.min(secs, OFFLINE_CAP * (1 + totals().offline)), amt = totalPerSec() * eff;
-  gain(amt); rivalsTick(eff, totalPerSec()); return { secs: secs, amt: amt, capped: secs > eff };
+  var eff = Math.min(secs, OFFLINE_CAP * (1 + totals().offline)), amt = totalPerSec() * eff * OFFLINE_EFF;
+  gain(amt); rivalsTick(eff, totalPerSec()); var mo = Math.min(48, Math.floor(eff / (DAY_S * 30))); S.day += eff / DAY_S; if (mo > 0) { var share = S.mInc / mo; for (var q = 0; q < mo; q++) { S.mInc = share; endMonth(); } S.month = Math.floor(S.day / 30); S.mInc = 0; } return { secs: secs, amt: amt, capped: secs > eff };
 }
 
 /* ---------- Prestige : « Expansion mondiale » ---------- */
 function starsPotential() { return Math.max(0, Math.floor(Math.sqrt(S.life / 1e10)) - S.stars); }
 function prestige() {
   var g = starsPotential(); if (g < 1) return false;
-  var keep = { rivalW: S.rivalW, adv: S.adv, eq: S.eq, slots: S.slots, hired: S.hired, life: S.life, stars: S.stars + g, name: S.name, set: S.set, gifts: S.gifts, news: S.news, dice: S.dice, tut: 3 };
-  var s = newState(); for (var k in keep) s[k] = keep[k]; s.cash = 4 + 4 * keep.stars; S = s; dirty = true; ensureQuests();
+  var keep = { day: S.day, month: S.month, rivalW: S.rivalW, adv: S.adv, eq: S.eq, slots: S.slots, hired: S.hired, life: S.life, stars: S.stars + g, name: S.name, set: S.set, gifts: S.gifts, news: S.news, dice: S.dice, tut: 3 };
+  var s = newState(); for (var k in keep) s[k] = keep[k]; s.cash = START + 500 * keep.stars; S = s; dirty = true; ensureQuests();
   addNews('Expansion mondiale ! +' + g + ' étoile(s) : revenus +' + (g * 5) + ' %.'); emit('prestige', { g: g }); return g;
 }
 
@@ -404,7 +433,7 @@ function importCode(code) { try { var o = parse(decodeURIComponent(escape(atob(S
 function reset() { S = newState(); dirty = true; ensureQuests(); }
 
 return {
-  BIZ: BIZ, DISTRICTS: DISTRICTS, ADV: ADV, ADVBY: ADVBY, RARITY: RARITY, BOARD: BOARD, MS: MS, TIER_MS: TIER_MS, EVENTS: EVENTS, RIVALS: RIVALS, ranking: ranking, myRank: myRank, counter: counter, spawnRival: spawnRival, INCIDENTS: INCIDENTS, incident: incident, fixIncident: fixIncident, spawnIncident: spawnIncident, MAX_ROLLS: MAX_ROLLS,
+  BIZ: BIZ, DISTRICTS: DISTRICTS, ADV: ADV, ADVBY: ADVBY, RARITY: RARITY, BOARD: BOARD, MS: MS, TIER_MS: TIER_MS, EVENTS: EVENTS, START: START, age: age, dateInfo: dateInfo, livingCost: livingCost, creditLimit: creditLimit, borrow: borrow, repay: repay, RIVALS: RIVALS, ranking: ranking, myRank: myRank, counter: counter, spawnRival: spawnRival, INCIDENTS: INCIDENTS, incident: incident, fixIncident: fixIncident, spawnIncident: spawnIncident, MAX_ROLLS: MAX_ROLLS,
   fmt: fmt, fmtTime: fmtTime, init: init, state: function () { return S; }, on: function (fn) { listeners.push(fn); }, setClock: function (fn) { clock = fn; },
   now: now, tick: tick, offline: offline, rev: rev, time: time, perSec: perSec, totalPerSec: totalPerSec, price: price, maxUnits: maxUnits, buyCount: buyCount,
   buy: buy, upgrade: upgrade, cycleMult: cycleMult, setMult: setMult, tierOf: tierOf, nextMs: nextMs, msCount: msCount, distComplete: distComplete, owned: owned,

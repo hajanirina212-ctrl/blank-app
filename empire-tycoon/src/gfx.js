@@ -374,7 +374,7 @@ function init(cv, quality) {
   hemi = new THREE.HemisphereLight(0xbfdcff, 0x7a7a5a, 0.8); scene.add(hemi);
   sun = new THREE.DirectionalLight(0xfff1d6, 2.2); sun.castShadow = true; var sc = sun.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 1; sc.far = 120;
   sun.shadow.mapSize.set(Q.shadow, Q.shadow); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; scene.add(sun); scene.add(sun.target);
-  makeTextures(); buildCity(); applyDay(dayT); resize();
+  makeTextures(); buildCity(); buildPawn(); applyDay(dayT); resize();
 }
 function resize() {
   var w = window.innerWidth || 400, h = window.innerHeight || 800; W = w; H = h; renderer.setSize(w, h); updateCam();
@@ -393,6 +393,51 @@ function zoomBy(f) { viewH = clamp(viewH * f, 16, 62); updateCam(); }
 function setView(h) { viewH = clamp(h, 16, 62); updateCam(); }
 function focusPlot(i, instant, j) { var p = plotPos(i); if (j !== undefined && plots[j]) { var q = plotPos(j); p = new THREE.Vector3((p.x + q.x) / 2, 0, (p.z + q.z) / 2); } focusTarget = new THREE.Vector3(p.x, 0, p.z + 3); if (instant) { tgt.copy(focusTarget); clampTgt(); updateCam(); focusTarget = null; } }
 var focusTarget = null;
+
+
+/* ---------- Pion du joueur : un patron qui se promène sur l'avenue qui fait le tour de la ville ---------- */
+var LOOP = [[18, 24], [-18, 24], [-18, -24], [18, -24]], LOOP_LEN = 168, TILES = 20, PAWN_OFF = 24, pawn = null;
+function loopAt(s) {
+  s = ((s % LOOP_LEN) + LOOP_LEN) % LOOP_LEN; var i = 0, L = [36, 48, 36, 48];
+  while (s > L[i]) { s -= L[i]; i++; }
+  var a = LOOP[i], b = LOOP[(i + 1) % 4], t = s / L[i], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.sqrt(dx * dx + dz * dz), nx = dx / len, nz = dz / len;
+  // décalage vers l'intérieur de la ville (trottoir) : à gauche du sens de marche
+  return { x: a[0] + dx * t - nz * 1.15, z: a[1] + dz * t + nx * 1.15, ry: Math.atan2(nx, nz) };
+}
+function buildPawn() {
+  var g = new THREE.Group(), suit = std('#2b4d9c', { roughness: 0.55 }), skin = std('#f1c49b', { roughness: 0.7 }), gold = std('#ffc93a', { roughness: 0.3, metalness: 0.6 }), dark = std('#1c1f26', { roughness: 0.5 });
+  mesh(g, new THREE.CylinderGeometry(0.75, 0.85, 0.18, 24), gold, 0, 0.09, 0, 1, 1, 1, true, true);
+  var body = new THREE.Group(); g.add(body);
+  mesh(body, new THREE.CylinderGeometry(0.34, 0.5, 1.45, 18), suit, 0, 0.95, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.SphereGeometry(0.36, 20, 16), skin, 0, 1.95, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.CylinderGeometry(0.5, 0.5, 0.06, 20), dark, 0, 2.2, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.CylinderGeometry(0.3, 0.32, 0.5, 20), dark, 0, 2.48, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.BoxGeometry(0.12, 0.62, 0.06), std('#e5484d', { roughness: 0.6 }), 0, 1.35, 0.4, 1, 1, 1, false, false);
+  mesh(body, new THREE.BoxGeometry(0.16, 0.16, 0.5), std('#2b4d9c', { roughness: 0.6 }), 0.52, 1.22, 0.14, 1, 1, 1, true, false);
+  mesh(body, new THREE.BoxGeometry(0.16, 0.16, 0.5), std('#2b4d9c', { roughness: 0.6 }), -0.52, 1.22, 0.14, 1, 1, 1, true, false);
+  var eyeM = std('#111', { roughness: 0.4 }); mesh(body, new THREE.SphereGeometry(0.05, 8, 8), eyeM, 0.13, 2.0, 0.32, 1, 1, 1, false, false); mesh(body, new THREE.SphereGeometry(0.05, 8, 8), eyeM, -0.13, 2.0, 0.32, 1, 1, 1, false, false);
+  var arrow = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 4), new THREE.MeshStandardMaterial({ color: C('#ffc93a'), emissive: C('#ff9d00'), emissiveIntensity: 0.9, roughness: 0.4 })); arrow.rotation.x = Math.PI; arrow.position.y = 5; g.add(arrow);
+  g.scale.set(1.5, 1.5, 1.5); scene.add(g);
+  pawn = { g: g, body: body, arrow: arrow, s: 0, from: 0, to: 0, t: 1, dur: 1, cb: null, moving: false };
+}
+function pawnSet(tile) { if (!pawn) return; pawn.s = pawn.from = pawn.to = tile * (LOOP_LEN / TILES); pawn.t = 1; pawn.moving = false; pawn.cb = null; placePawn(); }
+function pawnGo(tile, dur, cb) {       // avance toujours dans le même sens, jusqu'à la case « tile »
+  if (!pawn) { if (cb) cb(); return; }
+  var step = LOOP_LEN / TILES, to = tile * step, from = ((pawn.s % LOOP_LEN) + LOOP_LEN) % LOOP_LEN; if (to < from - 0.01) to += LOOP_LEN;
+  pawn.from = from; pawn.to = to; pawn.t = 0; pawn.dur = Math.max(0.05, dur); pawn.cb = cb || null; pawn.moving = true;
+}
+function placePawn() { var p = loopAt(pawn.s + PAWN_OFF); pawn.g.position.set(p.x, 0.12, p.z); pawn.g.rotation.y = p.ry; }
+function pawnPos() { var p = loopAt((pawn ? pawn.s : 0) + PAWN_OFF); return { x: p.x, z: p.z }; }
+function stepPawn(dt) {
+  if (!pawn) return;
+  if (pawn.moving) {
+    pawn.t = Math.min(1, pawn.t + dt / pawn.dur); pawn.s = pawn.from + (pawn.to - pawn.from) * pawn.t; placePawn();
+    var ph = clockT * 15; pawn.g.position.y = 0.12 + Math.abs(Math.sin(ph)) * 0.22; pawn.body.rotation.x = 0.12; pawn.body.rotation.z = Math.sin(ph) * 0.06;
+    if (pawn.t >= 1) { pawn.moving = false; pawn.s = pawn.to % LOOP_LEN; pawn.body.rotation.set(0, 0, 0); var cb = pawn.cb; pawn.cb = null; if (cb) cb(); }
+  } else { pawn.body.scale.y = 1 + Math.sin(clockT * 2.2) * 0.015; }
+  pawn.arrow.position.y = 5 + Math.sin(clockT * 3) * 0.35; pawn.arrow.rotation.y += dt * 2;
+}
+function focusPoint(x, z, instant) { focusTarget = new THREE.Vector3(x, 0, z + 3); if (instant) { tgt.copy(focusTarget); clampTgt(); updateCam(); focusTarget = null; } }
 
 /* ---------- États des parcelles ---------- */
 function setPlot(i, state, tier, animate) {          // state : 0 verrouillée, 1 à vendre (prochaine), 2 possédée
@@ -429,7 +474,7 @@ function frame(dt) {
       if (b.roof.userData.pole) b.roof.userData.pole.rotation.y += dt * 2;
     } else if (pl.site.userData.crane) { pl.site.userData.crane.rotation.y = Math.sin(clockT * 0.4 + i) * 0.5; }
   }
-  for (var c = 0; c < cars.length; c++) stepCar(cars[c], dt);
+  stepPawn(dt); for (var c = 0; c < cars.length; c++) stepCar(cars[c], dt);
   for (var p = puffs.length - 1; p >= 0; p--) { var pf = puffs[p]; pf.t += dt; pf.s.position.y += dt * 1.6; var sc = 1 + pf.t * 3.2; pf.s.scale.set(sc, sc, sc); pf.s.material.opacity = Math.max(0, 0.8 - pf.t * 0.9); if (pf.t > 0.9) { scene.remove(pf.s); pf.s.material.dispose(); puffs.splice(p, 1); } }
 }
 function render() { renderer.render(scene, camera); }
@@ -440,5 +485,5 @@ function setQuality(q) {
 function info() { return { renderer: renderer, scene: scene, camera: camera, plots: plots, night: nightF, dayT: dayT, viewH: viewH, tgt: tgt }; }
 
 return { init: init, resize: resize, frame: frame, render: render, setPlot: setPlot, cardPos: cardPos, bodyPos: bodyPos, pan: pan, zoomBy: zoomBy, setView: setView, focusPlot: focusPlot,
-  setQuality: setQuality, pxPerUnit: pxPerUnit, info: info, night: function () { return nightF; }, setDay: function (t) { dayT = t; applyDay(t); }, VIS: VIS, qualityName: function () { return qName; }, puff: puff };
+  setQuality: setQuality, pxPerUnit: pxPerUnit, info: info, night: function () { return nightF; }, setDay: function (t) { dayT = t; applyDay(t); }, VIS: VIS, qualityName: function () { return qName; }, puff: puff, pawnSet: pawnSet, pawnGo: pawnGo, pawnPos: pawnPos, focusPoint: focusPoint, pawnMoving: function () { return !!(pawn && pawn.moving); } };
 })();

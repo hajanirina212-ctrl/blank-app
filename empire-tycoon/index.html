@@ -138,6 +138,16 @@ textarea.tx{height:70px;font-size:11px;word-break:break-all}
 #bmid .btn{flex:none;width:100%;padding:8px 6px;font-size:14px}
 .card.inc .box{border-color:var(--red);animation:pulse 1.2s infinite}.card.inc .c-bar{background:#ffd0d3}.card.inc .c-bar i{display:none}.card.inc .c-bar span{color:#8e1b20}.card.inc .c-up{background:linear-gradient(#ff7b7f,var(--red));box-shadow:0 3px 0 #9c2025}.card.inc .c-up.no{background:linear-gradient(#aab6c2,#8b98a6);box-shadow:0 3px 0 #6f7c8a}
 .c-cp{display:none;font-size:10px;font-weight:800;color:#b0262c;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card.cmp .c-cp{display:block}.card.lock .c-cp,.card.next .c-cp{display:none!important}
+#dt{font-size:10.5px;opacity:.8;font-weight:700;margin-top:1px;white-space:nowrap}
+#cashbox{cursor:pointer}
+#fab{position:absolute;right:10px;bottom:calc(env(safe-area-inset-bottom) + 144px);width:62px;height:62px;border-radius:50%;font-size:30px;background:linear-gradient(#ffd45a,var(--gold2));border:3px solid #fff;box-shadow:0 4px 0 #b36d00;display:grid;place-items:center}
+#fab:active{transform:translateY(2px)}#fab.no{background:linear-gradient(#c3ccd6,#9aa6b3);box-shadow:0 4px 0 #6f7c8a}
+#fab i{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:900 12px/22px system-ui;font-style:normal;text-align:center;border:2px solid #fff}
+#rollres{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 112px);transform:translateX(-50%);max-width:90%;display:none;background:rgba(22,40,58,.92);color:#fff;font-weight:800;font-size:13.5px;padding:9px 16px;border-radius:14px;border:2px solid var(--gold);text-align:center;pointer-events:none}
+#dover{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);display:none;gap:14px;z-index:15;pointer-events:none}
+#dover .die{width:64px;height:64px;font-size:44px;border-radius:15px}
+@media (max-height:480px){#fab{bottom:calc(env(safe-area-inset-bottom) + 118px);width:52px;height:52px;font-size:24px}#rollres{top:calc(env(safe-area-inset-top) + 66px)}}
+.c-up b,.c-buy b{white-space:nowrap}
 
 </style>
 </head>
@@ -147,17 +157,20 @@ textarea.tx{height:70px;font-size:11px;word-break:break-all}
 <div id="fx"></div>
 <div id="hud">
   <div id="top">
-    <div class="chip" id="cashbox"><div class="coin">$</div><div style="min-width:0"><div id="cash">$0</div><div id="ps">+$0 /s</div></div></div>
+    <div class="chip" id="cashbox"><div class="coin">€</div><div style="min-width:0"><div id="cash">0 €</div><div id="ps">+0 €/s</div><div id="dt"></div></div></div>
     <div class="chip" id="count"><span id="cnt">0/12</span><small>commerces</small></div>
   </div>
   <div id="evt"></div>
   <div id="rail"></div>
   <div id="hint"></div>
   <button id="mult">×1</button>
+  <button id="fab"><span>🎲</span><i id="fabn"></i></button>
+  <div id="rollres"></div>
   <div id="nav"></div>
 </div>
 <div id="veil"></div>
 <div id="sheet"><header><span id="stitle"></span><button id="sclose" aria-label="Fermer">✕</button></header><div id="sbody"></div></div>
+<div id="dover"><div class="die" id="od1">⚀</div><div class="die" id="od2">⚁</div></div>
 <div id="modal"></div>
 <div id="toast"></div>
 <div id="splash"><h1><span>JEU DE</span>EMPIRE<br>TYCOON</h1><p>Touchez pour commencer</p><small>Bâtissez votre ville, commerce après commerce. Sans publicité, sans achat intégré.</small></div>
@@ -201,14 +214,16 @@ var ROWS = [
   ['market', 'Supermarché', 1.10, 60], ['pharmacy', 'Pharmacie', 1.09, 120], ['resto', 'Restaurant', 1.085, 240],
   ['hotel', 'Hôtel', 1.08, 480], ['agency', 'Agence immobilière', 1.075, 900], ['tower', 'Tour d\'affaires', 1.07, 1800]
 ];
+var START = 2500, DAY_S = 10, LIVING = 900, TAX = 0.12, INTEREST = 0.015, GARNISH = 0.3;   // épargne de départ, 1 jour = 10 s, vie courante /mois, impôt annuel, intérêt mensuel, part des revenus qui rembourse la dette
+var B0 = 2000, RATIO = 8, PB0 = 120, PBG = 1.8;           // prix du 1er commerce, ratio de prix, temps de remboursement (s)
 var BIZ = ROWS.map(function (r, i) {
-  var b = 4 * Math.pow(40, i), payback = 8 * Math.pow(1.9, i);   // prix du 1er niveau (×40 par commerce) ; temps de remboursement d'un niveau (s)
+  var b = B0 * Math.pow(RATIO, i), payback = PB0 * Math.pow(PBG, i);   // prix du 1er niveau (×40 par commerce) ; temps de remboursement d'un niveau (s)
   return { id: r[0], name: r[1], dist: Math.floor(i / 3), b: b, g: r[2], t: r[3], r: (b / payback) * r[3] };
 });
 var MS = [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1250, 1500, 2000, 2500, 3000];   // paliers : revenu ×2
 var SPD_MS = [100, 300, 500, 800, 1200];                                                              // paliers : cycle ×2 plus rapide
 var TIER_MS = [25, 50, 100, 200];                                                                      // paliers visibles (maisons → hôtel)
-var MAX_ROLLS = 5, ROLL_EVERY = 240000, OFFLINE_CAP = 8 * 3600;
+var MAX_ROLLS = 5, ROLL_EVERY = 240000, OFFLINE_CAP = 4 * 3600, OFFLINE_EFF = 0.5;
 
 /* ---------- Conseillers (portraits générés par le code côté interface) ---------- */
 var RARITY = [{ n: 'Commun', w: 70 }, { n: 'Rare', w: 22 }, { n: 'Épique', w: 7 }, { n: 'Légendaire', w: 1 }];
@@ -236,14 +251,14 @@ var BOARD = [
   { k: 'park', t: 'Parc' }, { k: 'cash', m: 900, t: 'Gros lot' }, { k: 'chance', t: 'Fortune' }, { k: 'cash', m: 1500, t: 'Jackpot' }
 ];
 var CARDS = [
-  { k: 'cash', m: 600, t: 'Un client fortuné laisse un énorme pourboire : 10 minutes de revenus !' },
+  { k: 'cash', m: 600, t: 'Un client fortuné laisse un gros pourboire : 2,5 minutes de revenus !' },
   { k: 'boost', b: 'rev', t: 'Un article élogieux dans la presse : revenus ×2 pendant 60 s !' },
   { k: 'adv', t: 'Un talent frappe à votre porte : un conseiller rejoint votre équipe !' },
   { k: 'tax', p: 0.02, t: 'Taxe foncière : vous payez 2 % de votre trésorerie.' },
   { k: 'move', n: 3, t: 'Voyage d\'affaires : avancez de 3 cases !' },
-  { k: 'cash', m: 300, t: 'Remboursement d\'un trop-perçu : 5 minutes de revenus.' },
+  { k: 'cash', m: 300, t: 'Remboursement d\'un trop-perçu : 1 minute de revenus.' },
   { k: 'boost', b: 'spd', t: 'Les livraisons sont en avance : cycles ×2 pendant 30 s !' },
-  { k: 'cash', m: 1200, t: 'Un investisseur rachète vos parts : 20 minutes de revenus !' }
+  { k: 'cash', m: 1200, t: 'Un investisseur rachète des parts : 5 minutes de revenus !' }
 ];
 /* ---------- Concurrents : des rivaux qui ouvrent à côté de chez vous et courent après la première place ---------- */
 var RIVALS = [
@@ -251,7 +266,7 @@ var RIVALS = [
 ];
 var COMP_HIT = 0.65, COMP_LIFE = 300000;
 var GIFTS = {
-  BIENVENUE: { cash: 1800, t: 'Bienvenue ! 30 minutes de revenus offertes.' },
+  BIENVENUE: { cash: 300, t: 'Bienvenue ! 5 minutes de revenus offertes.' },
   EMPIRE: { adv: 1, t: 'Un conseiller vous est offert !' },
   TYCOON: { rolls: 3, t: '3 lancers de dés offerts !' }
 };
@@ -261,8 +276,9 @@ var SUF = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc', 'Ud
 function fmt(n) {
   if (!isFinite(n)) return '∞';
   if (n < 0) return '-' + fmt(-n);
-  if (n < 1) return n.toFixed(2);
-  if (n < 1000) return String(Math.round(n * 100) / 100);
+  if (n < 10) return n.toFixed(2);
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1e6) return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
   var e = Math.floor(Math.log10(n) / 3);
   if (e >= SUF.length) return n.toExponential(2).replace('e+', 'e');
   var v = n / Math.pow(1000, e);
@@ -283,15 +299,15 @@ function randName() { var a = ['Audacieux', 'Rusé', 'Brillant', 'Fortuné', 'Ma
 function newState() {
   var now = clock();
   return {
-    v: 1, cash: 4, run: 0, life: 0, stars: 0,
+    v: 1, cash: START, run: 0, life: 0, stars: 0,
     biz: BIZ.map(function () { return { n: 0, p: 0 }; }), up: BIZ.map(function () { return 0; }), qdone: BIZ.map(function () { return 0; }),
     adv: {}, eq: [], slots: 2, hired: 0,
     quests: [], qseq: 1,
     dice: { pos: 0, rolls: 3, next: now + ROLL_EVERY, jail: 0 },
     boost: { revEnd: 0, spdEnd: 0, revCd: 0, spdCd: 0 },
-    vip: { next: now + 120000, cur: null },
+    vip: { next: now + 480000, cur: null },
     ev: { type: null, until: 0, next: now + 240000 },
-    news: [], comp: DISTRICTS.map(function () { return null; }), compNext: now + 420000, rivalW: [0, 0, 0], rivalNews: 0, inc: BIZ.map(function () { return null; }), incNext: now + 200000, mult: 1, gifts: {}, name: randName(),
+    day: 0, month: 0, mInc: 0, lastMInc: 0, yInc: 0, debt: 0, bill: null, news: [], comp: DISTRICTS.map(function () { return null; }), compNext: now + 420000, rivalW: [0, 0, 0], rivalNews: 0, inc: BIZ.map(function () { return null; }), incNext: now + 200000, mult: 1, gifts: {}, name: randName(),
     set: { sound: true, music: true, quality: 'auto' }, last: now, t0: now, tut: 0
   };
 }
@@ -341,7 +357,10 @@ function maxUnits(i) {
 function buyCount(i) { var m = S.mult; if (m === 0) return Math.max(1, maxUnits(i)); return m; }
 
 /* ---------- Actions ---------- */
-function gain(x) { if (!isFinite(x)) return; S.cash = Math.min(S.cash + x, 1e300); S.run += x; S.life += x; }
+function gain(x) {
+  if (!isFinite(x)) return; var pay = 0; if (S.debt > 0) { pay = Math.min(S.debt, x * GARNISH); S.debt -= pay; }
+  S.cash = Math.min(S.cash + x - pay, 1e300); S.run += x; S.life += x; S.mInc += x; S.yInc += x;
+}
 function buy(i) {
   var b = S.biz[i]; if (b.n > 0) return { ok: false, msg: 'Déjà acheté' };
   if (i > 0 && S.biz[i - 1].n <= 0) return { ok: false, msg: 'Achetez d\'abord le commerce précédent' };
@@ -390,7 +409,7 @@ function advPerk(a, count) { var f = 1 + 0.5 * (count - 1), txt = PERK[a.k] + Ma
 function boostState(w) { var e = w === 'rev' ? S.boost.revEnd : S.boost.spdEnd, c = w === 'rev' ? S.boost.revCd : S.boost.spdCd, n = clock(); return { on: e > n, left: Math.max(0, (e - n) / 1000), cd: Math.max(0, (c - n) / 1000) }; }
 function useBoost(w) {
   var st = boostState(w); if (st.on || st.cd > 0) return false; var n = clock();
-  if (w === 'rev') { S.boost.revEnd = n + 60000; S.boost.revCd = n + 600000; } else { S.boost.spdEnd = n + 30000; S.boost.spdCd = n + 480000; }
+  if (w === 'rev') { S.boost.revEnd = n + 60000; S.boost.revCd = n + 1200000; } else { S.boost.spdEnd = n + 30000; S.boost.spdCd = n + 900000; }
   emit('boost', { w: w }); return true;
 }
 function vipAccept() {
@@ -400,7 +419,7 @@ function vipAccept() {
   S.vip.cur = null; scheduleVip(); emit('vipdone', out); return out;
 }
 function vipDecline() { S.vip.cur = null; scheduleVip(); }
-function scheduleVip() { S.vip.next = clock() + (150 + Math.random() * 150) * 1000 * (1 - Math.min(0.5, totals().vip)); }
+function scheduleVip() { S.vip.next = clock() + (420 + Math.random() * 300) * 1000 * (1 - Math.min(0.5, totals().vip)); }
 var EVENTS = [
   { type: 'boom', ms: 90000, t: 'Boom économique : revenus +50 % pendant 90 s !' },
   { type: 'sale', ms: 60000, t: 'Soldes immobiliers : coûts -25 % pendant 60 s !' },
@@ -419,9 +438,9 @@ function rollDice() {
 }
 function landOn(pos, card) {
   var t = card || BOARD[pos], ps = Math.max(totalPerSec(), 1), out = { k: t.k, text: '' };
-  if (t.k === 'start') { out.amt = Math.max(ps * 300, 20); gain(out.amt); out.text = 'Case Départ : prime de ' + fmt(out.amt) + ' $ !'; }
-  else if (t.k === 'cash') { out.amt = Math.max(ps * t.m, 20); gain(out.amt); out.text = 'Vous encaissez ' + fmt(out.amt) + ' $ !'; }
-  else if (t.k === 'tax') { out.amt = S.cash * t.p; S.cash -= out.amt; out.text = 'Impôts : -' + fmt(out.amt) + ' $.'; }
+  if (t.k === 'start') { out.amt = Math.max(ps * 75, 20); gain(out.amt); out.text = 'Case Départ : prime de ' + fmt(out.amt) + ' € !'; }
+  else if (t.k === 'cash') { out.amt = Math.max(ps * t.m * 0.25, 20); gain(out.amt); out.text = 'Vous encaissez ' + fmt(out.amt) + ' € !'; }
+  else if (t.k === 'tax') { out.amt = S.cash * t.p; S.cash -= out.amt; out.text = 'Impôts : -' + fmt(out.amt) + ' €.'; }
   else if (t.k === 'boost') { var n = clock(); if (t.b === 'rev') { S.boost.revEnd = Math.max(S.boost.revEnd, n) + 60000; out.text = 'Boom : revenus ×2 pendant 60 s !'; } else { S.boost.spdEnd = Math.max(S.boost.spdEnd, n) + 30000; out.text = 'Turbo : cycles ×2 pendant 30 s !'; } }
   else if (t.k === 'adv') { var a = giveAdvisor(); out.adv = a; out.text = 'Recrue : ' + a.name + ' rejoint votre équipe !'; }
   else if (t.k === 'jail') { if (S.dice.rolls > 0) { S.dice.rolls--; out.text = 'Contrôle fiscal : vous perdez un lancer.'; } else out.text = 'Contrôle fiscal… heureusement, vous n\'aviez rien à perdre !'; }
@@ -440,7 +459,7 @@ function qProgress(q) {
 function qTitle(q) {
   if (q.t === 'up') return 'Améliorez ' + BIZ[q.i].name + ' ' + q.n + ' fois';
   if (q.t === 'own') return 'Possédez ' + q.n + ' commerce' + (q.n > 1 ? 's' : '');
-  if (q.t === 'earn') return 'Gagnez ' + fmt(q.n) + ' $';
+  if (q.t === 'earn') return 'Gagnez ' + fmt(q.n) + ' €';
   return BIZ[q.i].name + ' : atteignez le niveau ' + q.n;
 }
 function genQuest() {
@@ -448,10 +467,10 @@ function genQuest() {
   for (i = 0; i < S.biz.length; i++) if (S.biz[i].n > 0) own.push(i);
   while (tries++ < 20) {
     var kind = own.length === 0 ? 'own' : ['up', 'up', 'own', 'earn', 'tier'][Math.floor(Math.random() * 5)];
-    if (kind === 'own') { if (owned() >= BIZ.length) continue; q = { t: 'own', n: owned() + 1, rew: Math.max(ps * 900, price(Math.min(owned(), BIZ.length - 1), 1) * 0.5) }; }
-    else if (kind === 'up') { i = own[Math.floor(Math.random() * own.length)]; var n = [25, 50, 100, 200, 400][Math.min(4, S.qdone[i])]; q = { t: 'up', i: i, n: n, base: S.up[i], rew: ps * 600 * (n / 25) }; }
-    else if (kind === 'earn') { var tgt = Math.max(500, ps * 1800); q = { t: 'earn', n: tgt, base: S.run, rew: ps * 900 }; }
-    else { i = own[Math.floor(Math.random() * own.length)]; var nm = nextMs(S.biz[i].n); if (!nm) continue; q = { t: 'tier', i: i, n: nm, rew: ps * 1200 }; }
+    if (kind === 'own') { if (owned() >= BIZ.length) continue; q = { t: 'own', n: owned() + 1, rew: Math.max(ps * 150, price(Math.min(owned(), BIZ.length - 1), 1) * 0.2) }; }
+    else if (kind === 'up') { i = own[Math.floor(Math.random() * own.length)]; var n = [25, 50, 100, 200, 400][Math.min(4, S.qdone[i])]; q = { t: 'up', i: i, n: n, base: S.up[i], rew: ps * 120 * (n / 25) }; }
+    else if (kind === 'earn') { var tgt = Math.max(500, ps * 1800); q = { t: 'earn', n: tgt, base: S.run, rew: ps * 150 }; }
+    else { i = own[Math.floor(Math.random() * own.length)]; var nm = nextMs(S.biz[i].n); if (!nm) continue; q = { t: 'tier', i: i, n: nm, rew: ps * 200 }; }
     var dup = S.quests.some(function (o) { return o.t === q.t && o.i === q.i; }); if (dup) continue;
     q.id = S.qseq++; q.rew = Math.max(q.rew, 5); return q;
   }
@@ -480,7 +499,7 @@ function spawnIncident() {
   var n = clock(), r = Math.random();
   if (r < 0.25) {   // incidents instantanés : vol ou amende
     var loss = Math.min(S.cash * 0.08, Math.max(totalPerSec() * 90, 1)), theft = Math.random() < 0.5; if (loss < 1) return; S.cash -= loss;
-    addNews(theft ? 'Cambriolage ! Vous perdez ' + fmt(loss) + ' $ de caisse.' : 'Amende de l\'administration fiscale : -' + fmt(loss) + ' $.'); emit('incident', { instant: true, theft: theft, amt: loss }); return;
+    addNews(theft ? 'Cambriolage ! Vous perdez ' + fmt(loss) + ' € de caisse.' : 'Amende de l\'administration fiscale : -' + fmt(loss) + ' €.'); emit('incident', { instant: true, theft: theft, amt: loss }); return;
   }
   i = own[Math.floor(Math.random() * own.length)]; var T = INCIDENTS[Math.floor(Math.random() * INCIDENTS.length)], ps = rev(i) / time(i);
   S.inc[i] = { t: T.t, cost: Math.max(ps * T.m, 5), until: T.d ? n + T.d * 1000 : 0 };
@@ -511,6 +530,28 @@ function rivalsTick(dt, ps) {
   for (var k = 0; k < RIVALS.length; k++) S.rivalW[k] += dt * (ps * RIVALS[k].m + 0.05 * k);
 }
 
+/* ---------- Vie d'un entrepreneur : calendrier, charges de vie, impôts, dette ---------- */
+function age() { return 25 + Math.floor(S.day / 360); }
+function dateInfo() { var d = Math.floor(S.day); return { year: Math.floor(d / 360) + 1, month: Math.floor(d % 360 / 30) + 1, day: d % 30 + 1, age: 25 + Math.floor(d / 360) }; }
+function livingCost() { return LIVING + 0.02 * S.mInc; }
+function creditLimit() { return 5000 + 400 * totalPerSec(); }
+function charge(x) { if (S.cash >= x) S.cash -= x; else { S.debt += x - S.cash; S.cash = 0; } }
+function endMonth() {
+  var living = livingCost(), interest = S.debt * INTEREST, tax = 0; S.debt += interest; charge(living);
+  S.month++; if (S.month % 12 === 0) { tax = S.yInc * TAX; S.yInc = 0; charge(tax); }
+  S.bill = { m: S.month, inc: S.mInc, living: living, interest: interest, tax: tax }; S.lastMInc = S.mInc; S.mInc = 0;
+  addNews('📅 Mois ' + S.month + ' : vie courante -' + fmt(living) + ' €' + (interest > 1 ? ', intérêts -' + fmt(interest) + ' €' : '') + (tax ? ', impôts -' + fmt(tax) + ' €' : '') + '.');
+  emit('month', S.bill);
+}
+function borrow(x) {
+  var room = creditLimit() - S.debt; x = Math.min(x, room); if (x < 1) return { ok: false, msg: 'La banque refuse : endettement maximal atteint.' };
+  S.cash += x; S.debt += x; addNews('🏦 Prêt bancaire : +' + fmt(x) + ' € (intérêts ' + (INTEREST * 100) + ' % par mois).'); return { ok: true, amt: x };
+}
+function repay(x) {
+  x = Math.min(x, S.debt, S.cash); if (x < 1) return { ok: false, msg: S.debt < 1 ? 'Aucune dette.' : 'Pas assez d\'argent.' };
+  S.cash -= x; S.debt -= x; if (S.debt < 0.5) S.debt = 0; addNews('🏦 Remboursement : -' + fmt(x) + ' €.'); return { ok: true, amt: x };
+}
+
 /* ---------- Journal ---------- */
 function addNews(t) { S.news.unshift({ t: clock(), x: t }); if (S.news.length > 40) S.news.length = 40; emit('news', { x: t }); }
 
@@ -530,14 +571,15 @@ function tick(dt) {
   // dés rechargés avec le temps
   while (S.dice.rolls < MAX_ROLLS && n >= S.dice.next) { S.dice.rolls++; S.dice.next += ROLL_EVERY; emit('rolls', {}); }
   if (S.dice.rolls >= MAX_ROLLS) S.dice.next = n + ROLL_EVERY;
-  var rk0 = S.rankLast || 0; rivalsTick(dt, totalPerSec());
+  S.day += dt / DAY_S; while (S.month < Math.floor(S.day / 30)) endMonth();
+  rivalsTick(dt, totalPerSec());
   for (i = 0; i < S.comp.length; i++) if (S.comp[i] && n > S.comp[i].until) { addNews(RIVALS[S.comp[i].r].name + ' ferme sa boutique à ' + DISTRICTS[i].name + '.'); S.comp[i] = null; }
   if (n >= S.compNext && owned() >= 3) { S.compNext = n + (360 + Math.random() * 300) * 1000; spawnRival(); if (Math.random() < 0.3) { var vk = Math.floor(Math.random() * 3); if (S.rivalW[vk] > S.life * 0.5) { S.rivalW[vk] *= 0.7; addNews('📉 ' + RIVALS[vk].name + ' traverse un scandale : sa fortune chute !'); } } }
   var rk = myRank(); if (S.rankLast && rk !== S.rankLast && S.life > 5000) { addNews(rk < S.rankLast ? '🏆 Vous passez ' + rk + (rk === 1 ? 'er' : 'e') + ' au classement des empires !' : '⚠️ Un rival vous dépasse : vous êtes ' + rk + 'e.'); emit('rank', { rk: rk }); } S.rankLast = rk;
   if (n >= S.incNext && owned() >= 2) { S.incNext = n + (240 + Math.random() * 240) * 1000; spawnIncident(); }
   // VIP
   if (S.vip.cur && n > S.vip.cur.until) { S.vip.cur = null; scheduleVip(); }
-  if (!S.vip.cur && n >= S.vip.next && owned() >= 1) { S.vip.cur = { type: Math.random() < 0.55 ? 'investor' : 'manager', mins: 10 + Math.floor(Math.random() * 15), until: n + 45000 }; emit('vip', S.vip.cur); }
+  if (!S.vip.cur && n >= S.vip.next && owned() >= 1) { S.vip.cur = { type: Math.random() < 0.55 ? 'investor' : 'manager', mins: 2 + Math.floor(Math.random() * 4), until: n + 45000 }; emit('vip', S.vip.cur); }
   // événements de marché
   if (S.ev.type && n > S.ev.until) { S.ev.type = null; }
   if (!S.ev.type && n >= S.ev.next && owned() >= 2) {
@@ -548,16 +590,16 @@ function tick(dt) {
 function offline() {
   var n = clock(), secs = Math.max(0, (n - S.last) / 1000);
   if (secs < 60 || owned() === 0) return null;
-  var eff = Math.min(secs, OFFLINE_CAP * (1 + totals().offline)), amt = totalPerSec() * eff;
-  gain(amt); rivalsTick(eff, totalPerSec()); return { secs: secs, amt: amt, capped: secs > eff };
+  var eff = Math.min(secs, OFFLINE_CAP * (1 + totals().offline)), amt = totalPerSec() * eff * OFFLINE_EFF;
+  gain(amt); rivalsTick(eff, totalPerSec()); var mo = Math.min(48, Math.floor(eff / (DAY_S * 30))); S.day += eff / DAY_S; if (mo > 0) { var share = S.mInc / mo; for (var q = 0; q < mo; q++) { S.mInc = share; endMonth(); } S.month = Math.floor(S.day / 30); S.mInc = 0; } return { secs: secs, amt: amt, capped: secs > eff };
 }
 
 /* ---------- Prestige : « Expansion mondiale » ---------- */
 function starsPotential() { return Math.max(0, Math.floor(Math.sqrt(S.life / 1e10)) - S.stars); }
 function prestige() {
   var g = starsPotential(); if (g < 1) return false;
-  var keep = { rivalW: S.rivalW, adv: S.adv, eq: S.eq, slots: S.slots, hired: S.hired, life: S.life, stars: S.stars + g, name: S.name, set: S.set, gifts: S.gifts, news: S.news, dice: S.dice, tut: 3 };
-  var s = newState(); for (var k in keep) s[k] = keep[k]; s.cash = 4 + 4 * keep.stars; S = s; dirty = true; ensureQuests();
+  var keep = { day: S.day, month: S.month, rivalW: S.rivalW, adv: S.adv, eq: S.eq, slots: S.slots, hired: S.hired, life: S.life, stars: S.stars + g, name: S.name, set: S.set, gifts: S.gifts, news: S.news, dice: S.dice, tut: 3 };
+  var s = newState(); for (var k in keep) s[k] = keep[k]; s.cash = START + 500 * keep.stars; S = s; dirty = true; ensureQuests();
   addNews('Expansion mondiale ! +' + g + ' étoile(s) : revenus +' + (g * 5) + ' %.'); emit('prestige', { g: g }); return g;
 }
 
@@ -582,7 +624,7 @@ function importCode(code) { try { var o = parse(decodeURIComponent(escape(atob(S
 function reset() { S = newState(); dirty = true; ensureQuests(); }
 
 return {
-  BIZ: BIZ, DISTRICTS: DISTRICTS, ADV: ADV, ADVBY: ADVBY, RARITY: RARITY, BOARD: BOARD, MS: MS, TIER_MS: TIER_MS, EVENTS: EVENTS, RIVALS: RIVALS, ranking: ranking, myRank: myRank, counter: counter, spawnRival: spawnRival, INCIDENTS: INCIDENTS, incident: incident, fixIncident: fixIncident, spawnIncident: spawnIncident, MAX_ROLLS: MAX_ROLLS,
+  BIZ: BIZ, DISTRICTS: DISTRICTS, ADV: ADV, ADVBY: ADVBY, RARITY: RARITY, BOARD: BOARD, MS: MS, TIER_MS: TIER_MS, EVENTS: EVENTS, START: START, age: age, dateInfo: dateInfo, livingCost: livingCost, creditLimit: creditLimit, borrow: borrow, repay: repay, RIVALS: RIVALS, ranking: ranking, myRank: myRank, counter: counter, spawnRival: spawnRival, INCIDENTS: INCIDENTS, incident: incident, fixIncident: fixIncident, spawnIncident: spawnIncident, MAX_ROLLS: MAX_ROLLS,
   fmt: fmt, fmtTime: fmtTime, init: init, state: function () { return S; }, on: function (fn) { listeners.push(fn); }, setClock: function (fn) { clock = fn; },
   now: now, tick: tick, offline: offline, rev: rev, time: time, perSec: perSec, totalPerSec: totalPerSec, price: price, maxUnits: maxUnits, buyCount: buyCount,
   buy: buy, upgrade: upgrade, cycleMult: cycleMult, setMult: setMult, tierOf: tierOf, nextMs: nextMs, msCount: msCount, distComplete: distComplete, owned: owned,
@@ -970,7 +1012,7 @@ function init(cv, quality) {
   hemi = new THREE.HemisphereLight(0xbfdcff, 0x7a7a5a, 0.8); scene.add(hemi);
   sun = new THREE.DirectionalLight(0xfff1d6, 2.2); sun.castShadow = true; var sc = sun.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 1; sc.far = 120;
   sun.shadow.mapSize.set(Q.shadow, Q.shadow); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; scene.add(sun); scene.add(sun.target);
-  makeTextures(); buildCity(); applyDay(dayT); resize();
+  makeTextures(); buildCity(); buildPawn(); applyDay(dayT); resize();
 }
 function resize() {
   var w = window.innerWidth || 400, h = window.innerHeight || 800; W = w; H = h; renderer.setSize(w, h); updateCam();
@@ -989,6 +1031,51 @@ function zoomBy(f) { viewH = clamp(viewH * f, 16, 62); updateCam(); }
 function setView(h) { viewH = clamp(h, 16, 62); updateCam(); }
 function focusPlot(i, instant, j) { var p = plotPos(i); if (j !== undefined && plots[j]) { var q = plotPos(j); p = new THREE.Vector3((p.x + q.x) / 2, 0, (p.z + q.z) / 2); } focusTarget = new THREE.Vector3(p.x, 0, p.z + 3); if (instant) { tgt.copy(focusTarget); clampTgt(); updateCam(); focusTarget = null; } }
 var focusTarget = null;
+
+
+/* ---------- Pion du joueur : un patron qui se promène sur l'avenue qui fait le tour de la ville ---------- */
+var LOOP = [[18, 24], [-18, 24], [-18, -24], [18, -24]], LOOP_LEN = 168, TILES = 20, PAWN_OFF = 24, pawn = null;
+function loopAt(s) {
+  s = ((s % LOOP_LEN) + LOOP_LEN) % LOOP_LEN; var i = 0, L = [36, 48, 36, 48];
+  while (s > L[i]) { s -= L[i]; i++; }
+  var a = LOOP[i], b = LOOP[(i + 1) % 4], t = s / L[i], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.sqrt(dx * dx + dz * dz), nx = dx / len, nz = dz / len;
+  // décalage vers l'intérieur de la ville (trottoir) : à gauche du sens de marche
+  return { x: a[0] + dx * t - nz * 1.15, z: a[1] + dz * t + nx * 1.15, ry: Math.atan2(nx, nz) };
+}
+function buildPawn() {
+  var g = new THREE.Group(), suit = std('#2b4d9c', { roughness: 0.55 }), skin = std('#f1c49b', { roughness: 0.7 }), gold = std('#ffc93a', { roughness: 0.3, metalness: 0.6 }), dark = std('#1c1f26', { roughness: 0.5 });
+  mesh(g, new THREE.CylinderGeometry(0.75, 0.85, 0.18, 24), gold, 0, 0.09, 0, 1, 1, 1, true, true);
+  var body = new THREE.Group(); g.add(body);
+  mesh(body, new THREE.CylinderGeometry(0.34, 0.5, 1.45, 18), suit, 0, 0.95, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.SphereGeometry(0.36, 20, 16), skin, 0, 1.95, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.CylinderGeometry(0.5, 0.5, 0.06, 20), dark, 0, 2.2, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.CylinderGeometry(0.3, 0.32, 0.5, 20), dark, 0, 2.48, 0, 1, 1, 1, true, true);
+  mesh(body, new THREE.BoxGeometry(0.12, 0.62, 0.06), std('#e5484d', { roughness: 0.6 }), 0, 1.35, 0.4, 1, 1, 1, false, false);
+  mesh(body, new THREE.BoxGeometry(0.16, 0.16, 0.5), std('#2b4d9c', { roughness: 0.6 }), 0.52, 1.22, 0.14, 1, 1, 1, true, false);
+  mesh(body, new THREE.BoxGeometry(0.16, 0.16, 0.5), std('#2b4d9c', { roughness: 0.6 }), -0.52, 1.22, 0.14, 1, 1, 1, true, false);
+  var eyeM = std('#111', { roughness: 0.4 }); mesh(body, new THREE.SphereGeometry(0.05, 8, 8), eyeM, 0.13, 2.0, 0.32, 1, 1, 1, false, false); mesh(body, new THREE.SphereGeometry(0.05, 8, 8), eyeM, -0.13, 2.0, 0.32, 1, 1, 1, false, false);
+  var arrow = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 4), new THREE.MeshStandardMaterial({ color: C('#ffc93a'), emissive: C('#ff9d00'), emissiveIntensity: 0.9, roughness: 0.4 })); arrow.rotation.x = Math.PI; arrow.position.y = 5; g.add(arrow);
+  g.scale.set(1.5, 1.5, 1.5); scene.add(g);
+  pawn = { g: g, body: body, arrow: arrow, s: 0, from: 0, to: 0, t: 1, dur: 1, cb: null, moving: false };
+}
+function pawnSet(tile) { if (!pawn) return; pawn.s = pawn.from = pawn.to = tile * (LOOP_LEN / TILES); pawn.t = 1; pawn.moving = false; pawn.cb = null; placePawn(); }
+function pawnGo(tile, dur, cb) {       // avance toujours dans le même sens, jusqu'à la case « tile »
+  if (!pawn) { if (cb) cb(); return; }
+  var step = LOOP_LEN / TILES, to = tile * step, from = ((pawn.s % LOOP_LEN) + LOOP_LEN) % LOOP_LEN; if (to < from - 0.01) to += LOOP_LEN;
+  pawn.from = from; pawn.to = to; pawn.t = 0; pawn.dur = Math.max(0.05, dur); pawn.cb = cb || null; pawn.moving = true;
+}
+function placePawn() { var p = loopAt(pawn.s + PAWN_OFF); pawn.g.position.set(p.x, 0.12, p.z); pawn.g.rotation.y = p.ry; }
+function pawnPos() { var p = loopAt((pawn ? pawn.s : 0) + PAWN_OFF); return { x: p.x, z: p.z }; }
+function stepPawn(dt) {
+  if (!pawn) return;
+  if (pawn.moving) {
+    pawn.t = Math.min(1, pawn.t + dt / pawn.dur); pawn.s = pawn.from + (pawn.to - pawn.from) * pawn.t; placePawn();
+    var ph = clockT * 15; pawn.g.position.y = 0.12 + Math.abs(Math.sin(ph)) * 0.22; pawn.body.rotation.x = 0.12; pawn.body.rotation.z = Math.sin(ph) * 0.06;
+    if (pawn.t >= 1) { pawn.moving = false; pawn.s = pawn.to % LOOP_LEN; pawn.body.rotation.set(0, 0, 0); var cb = pawn.cb; pawn.cb = null; if (cb) cb(); }
+  } else { pawn.body.scale.y = 1 + Math.sin(clockT * 2.2) * 0.015; }
+  pawn.arrow.position.y = 5 + Math.sin(clockT * 3) * 0.35; pawn.arrow.rotation.y += dt * 2;
+}
+function focusPoint(x, z, instant) { focusTarget = new THREE.Vector3(x, 0, z + 3); if (instant) { tgt.copy(focusTarget); clampTgt(); updateCam(); focusTarget = null; } }
 
 /* ---------- États des parcelles ---------- */
 function setPlot(i, state, tier, animate) {          // state : 0 verrouillée, 1 à vendre (prochaine), 2 possédée
@@ -1025,7 +1112,7 @@ function frame(dt) {
       if (b.roof.userData.pole) b.roof.userData.pole.rotation.y += dt * 2;
     } else if (pl.site.userData.crane) { pl.site.userData.crane.rotation.y = Math.sin(clockT * 0.4 + i) * 0.5; }
   }
-  for (var c = 0; c < cars.length; c++) stepCar(cars[c], dt);
+  stepPawn(dt); for (var c = 0; c < cars.length; c++) stepCar(cars[c], dt);
   for (var p = puffs.length - 1; p >= 0; p--) { var pf = puffs[p]; pf.t += dt; pf.s.position.y += dt * 1.6; var sc = 1 + pf.t * 3.2; pf.s.scale.set(sc, sc, sc); pf.s.material.opacity = Math.max(0, 0.8 - pf.t * 0.9); if (pf.t > 0.9) { scene.remove(pf.s); pf.s.material.dispose(); puffs.splice(p, 1); } }
 }
 function render() { renderer.render(scene, camera); }
@@ -1036,7 +1123,7 @@ function setQuality(q) {
 function info() { return { renderer: renderer, scene: scene, camera: camera, plots: plots, night: nightF, dayT: dayT, viewH: viewH, tgt: tgt }; }
 
 return { init: init, resize: resize, frame: frame, render: render, setPlot: setPlot, cardPos: cardPos, bodyPos: bodyPos, pan: pan, zoomBy: zoomBy, setView: setView, focusPlot: focusPlot,
-  setQuality: setQuality, pxPerUnit: pxPerUnit, info: info, night: function () { return nightF; }, setDay: function (t) { dayT = t; applyDay(t); }, VIS: VIS, qualityName: function () { return qName; }, puff: puff };
+  setQuality: setQuality, pxPerUnit: pxPerUnit, info: info, night: function () { return nightF; }, setDay: function (t) { dayT = t; applyDay(t); }, VIS: VIS, qualityName: function () { return qName; }, puff: puff, pawnSet: pawnSet, pawnGo: pawnGo, pawnPos: pawnPos, focusPoint: focusPoint, pawnMoving: function () { return !!(pawn && pawn.moving); } };
 })();
 
 /* =====================================================================
@@ -1134,7 +1221,7 @@ var UI = (function () {
   function setHtml(e, t) { if (e._h !== t) { e._h = t; e.innerHTML = t; } }
   function setCls(e, c, on) { if (e._c === undefined) e._c = {}; if (e._c[c] !== on) { e._c[c] = on; e.classList.toggle(c, on); } }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function money(n) { return '$' + fmt(n); }
+  function money(n) { return fmt(n) + ' €'; }
   var toastT = 0;
   function toast(t) { var e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(function () { e.style.display = 'none'; }, 2400); }
   function floatText(x, y, t, cls) {
@@ -1146,7 +1233,7 @@ var UI = (function () {
 
   /* ---------- synchronisation ville 3D <-> état ---------- */
   function plotStateOf(i) { var n = S().biz[i].n; return n > 0 ? 2 : (i === 0 || S().biz[i - 1].n > 0) ? 1 : 0; }
-  function syncCity(animate) { for (var i = 0; i < BIZ.length; i++) Gfx.setPlot(i, plotStateOf(i), Engine.tierOf(S().biz[i].n), animate); }
+  function syncCity(animate) { if (!Gfx.pawnMoving()) Gfx.pawnSet(S().dice.pos); for (var i = 0; i < BIZ.length; i++) Gfx.setPlot(i, plotStateOf(i), Engine.tierOf(S().biz[i].n), animate); }
   function nextToBuy() { for (var i = 0; i < BIZ.length; i++) if (S().biz[i].n <= 0) return i; return -1; }
 
   /* ---------- cartes des commerces ---------- */
@@ -1223,6 +1310,8 @@ var UI = (function () {
       '<button class="nb o" data-p="dice"><div class="ic">🎲</div><span class="lb">Dés</span><div class="bdg" id="bdgD"></div></button>' +
       '<button class="nb k" data-p="settings"><div class="ic">⚙️</div><span class="lb">Réglages</span></button>';
     $('nav').addEventListener('click', function (e) { var b = e.target.closest('[data-p]'); if (!b) return; Sfx.init(); Sfx.click(); openPanel(b.dataset.p); });
+    $('cashbox').addEventListener('click', function () { Sfx.init(); Sfx.click(); openPanel('fin'); });
+    $('fab').addEventListener('click', function () { Sfx.init(); if (curSheet) closePanel(); diceRoll(); });
     $('mult').addEventListener('click', function () { Sfx.init(); Sfx.click(); Engine.cycleMult(); });
     $('rbRev').addEventListener('click', function () { Sfx.init(); if (Engine.useBoost('rev')) Sfx.claim(); else { Sfx.err(); toast('Revenus ×2 : déjà actif ou en recharge.'); } });
     $('rbSpd').addEventListener('click', function () { Sfx.init(); if (Engine.useBoost('spd')) Sfx.claim(); else { Sfx.err(); toast('Cycles ×2 : déjà actif ou en recharge.'); } });
@@ -1233,7 +1322,7 @@ var UI = (function () {
   }
   var hudT = 0;
   function updateHud(dt) {
-    var s = S(); setTxt($('cash'), money(s.cash)); setTxt($('ps'), '+' + money(Engine.totalPerSec()) + ' /s'); setTxt($('cnt'), Engine.owned() + '/' + BIZ.length);
+    var s = S(); setTxt($('cash'), money(s.cash)); setTxt($('ps'), '+' + money(Engine.totalPerSec()) + '/s' + (s.debt > 1 ? ' · dette ' + money(s.debt) : '')); var di = Engine.dateInfo(); setTxt($('dt'), '📅 An ' + di.year + ' · mois ' + di.month + ' · j.' + di.day + ' · 👤 ' + di.age + ' ans'); setTxt($('cnt'), Engine.owned() + '/' + BIZ.length);
     setTxt($('mult'), s.mult === 0 ? 'Max' : '×' + s.mult);
     hudT -= dt; if (hudT > 0) return; hudT = 0.2;
     var rev = Engine.boostState('rev'), spd = Engine.boostState('spd'), a = $('rbRev'), b = $('rbSpd');
@@ -1243,7 +1332,7 @@ var UI = (function () {
     var nc = s.comp.filter(function (z) { return z; }).length; $('rbComp').style.display = nc ? '' : 'none'; setTxt($('rbComp').querySelector('small'), nc + ' rival' + (nc > 1 ? 'aux' : ''));
     var pot = Engine.starsPotential(); $('rbStar').style.display = pot >= 1 ? '' : 'none'; setTxt($('rbStar').querySelector('small'), '+' + pot + ' ⭐');
     var ev = Engine.evType(), eb = $('evt'); if (ev) { var E = Engine.EVENTS.filter(function (x) { return x.type === ev; })[0]; eb.style.display = 'block'; setTxt(eb, ({ boom: '📈 Boom économique : revenus +50 %', sale: '🏷️ Soldes : coûts -25 %', rush: '⚡ Heure de pointe : cycles ×2' })[ev] + ' · ' + Math.ceil((s.ev.until - Engine.now()) / 1000) + ' s'); } else eb.style.display = 'none';
-    var q = Engine.questsReady(), bq = $('bdgQ'); bq.style.display = q ? 'grid' : 'none'; setTxt(bq, q); var r = s.dice.rolls, bd = $('bdgD'); bd.style.display = r ? 'grid' : 'none'; setTxt(bd, r);
+    var q = Engine.questsReady(), bq = $('bdgQ'); bq.style.display = q ? 'grid' : 'none'; setTxt(bq, q); var r = s.dice.rolls; setTxt($('fabn'), r); $('fabn').style.display = r ? '' : 'none'; setCls($('fab'), 'no', r <= 0); var bd = $('bdgD'); bd.style.display = r ? 'grid' : 'none'; setTxt(bd, r);
     var sl = '', i; for (i = 0; i < s.slots; i++) { var id = s.eq[i]; sl += id ? '<div class="slot"><img src="' + Portrait.get(Engine.ADVBY[id]) + '"></div>' : '<div class="slot">+</div>'; } setHtml($('slots'), sl);
     // aide contextuelle
     var h = '', up = s.up.reduce(function (x, y) { return x + y; }, 0);
@@ -1261,8 +1350,25 @@ var UI = (function () {
   }
   function closePanel() { if (!curSheet) return; Sfx.click(); curSheet = null; $('veil').style.display = 'none'; $('sheet').style.display = 'none'; }
   function renderPanel(reset) {
-    if (!curSheet) return; var body = $('sbody'), sc = body.scrollTop, t = { quests: '📜 Quêtes', news: '📰 Journal & rivaux', team: '🧑‍💼 Conseillers', dice: '🎲 Plateau de la fortune', settings: '⚙️ Réglages' };
-    $('stitle').textContent = t[curSheet]; ({ quests: pQuests, news: pNews, team: pTeam, dice: pDice, settings: pSettings })[curSheet](body); body.scrollTop = reset ? 0 : sc;
+    if (!curSheet) return; var body = $('sbody'), sc = body.scrollTop, t = { quests: '📜 Quêtes', news: '📰 Journal & rivaux', team: '🧑‍💼 Conseillers', dice: '🎲 Plateau de la fortune', settings: '⚙️ Réglages', fin: '💶 Finances' };
+    $('stitle').textContent = t[curSheet]; ({ quests: pQuests, news: pNews, team: pTeam, dice: pDice, settings: pSettings, fin: pFin })[curSheet](body); body.scrollTop = reset ? 0 : sc;
+  }
+  function pFin(b) {
+    var s = S(), di = Engine.dateInfo(), bl = s.bill, lim = Engine.creditLimit(), room = Math.max(0, lim - s.debt), mLeft = 12 - (s.month % 12), h = '';
+    h += '<div class="lrow" style="display:block"><b>📅 An ' + di.year + ' · mois ' + di.month + ' · jour ' + di.day + '</b><div class="note">👤 Vous avez ' + di.age + ' ans · 1 jour = 10 s, 1 mois = 5 min, 1 an = 1 h de jeu. Les commerces travaillent pour vous, mais la vie a un coût.</div></div>';
+    h += '<div class="sec">Bilan du dernier mois</div>';
+    h += bl ? '<div class="lrow" style="display:block">Revenus encaissés : <b>' + money(bl.inc) + '</b><br>Vie courante (loyer, nourriture, transports…) : <b>-' + money(bl.living) + '</b><br>Intérêts de la dette : <b>-' + money(bl.interest) + '</b>' + (bl.tax ? '<br>Impôts annuels : <b>-' + money(bl.tax) + '</b>' : '') + '</div>' : '<div class="lrow">Pas encore de bilan : le premier mois se termine bientôt.</div>';
+    h += '<div class="sec">À prévoir</div><div class="lrow" style="display:block">Vie courante : <b>≈ ' + money(Engine.livingCost()) + ' / mois</b> (plus vous gagnez, plus votre train de vie monte)<br>Impôts : <b>12 %</b> des revenus de l\'année, dans <b>' + mLeft + ' mois</b> (déjà ≈ ' + money(s.yInc * 0.12) + ')</div>';
+    h += '<div class="sec">Dette & banque</div><div class="lrow" style="display:block">Dette : <b style="color:' + (s.debt > 0 ? '#b0262c' : '#2a8f38') + '">' + money(s.debt) + '</b> · intérêts 1,5 % / mois<br>Capacité d\'emprunt restante : <b>' + money(room) + '</b>' +
+      '<div class="note">Vos charges non payées (découvert) s\'ajoutent à la dette. 30 % de vos revenus la remboursent automatiquement. Emprunter permet d\'acheter plus vite, mais coûte des intérêts !</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm blue" data-b="q" style="flex:1">Emprunter ' + money(room / 4) + '</button><button class="btn sm blue" data-b="all" style="flex:1">Emprunter ' + money(room) + '</button></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm ' + (s.debt > 0 ? 'gold' : 'no') + '" data-r="half" style="flex:1">Rembourser la moitié</button><button class="btn sm ' + (s.debt > 0 ? 'gold' : 'no') + '" data-r="all" style="flex:1">Tout rembourser</button></div></div>';
+    b.innerHTML = h;
+    b.onclick = function (e) {
+      var x = e.target.closest('[data-b]'), r;
+      if (x) { r = Engine.borrow(x.dataset.b === 'q' ? room / 4 : room); if (!r.ok) { Sfx.err(); toast(r.msg); } else { Sfx.claim(); toast('Prêt accordé : +' + money(r.amt)); renderPanel(); } return; }
+      x = e.target.closest('[data-r]'); if (x) { r = Engine.repay(x.dataset.r === 'half' ? S().debt / 2 : S().debt); if (!r.ok) { Sfx.err(); toast(r.msg); } else { Sfx.up(); renderPanel(); } }
+    };
   }
   function pQuests(b) {
     var s = S(), h = '<div class="note">Terminez les objectifs pour toucher des récompenses en argent. De nouvelles quêtes arrivent aussitôt.</div>';
@@ -1320,25 +1426,30 @@ var UI = (function () {
     h += '<div id="bmid"><div class="dice"><div class="die" id="d1">⚀</div><div class="die" id="d2">⚁</div></div><button class="btn gold" id="rollBtn">Lancer les dés</button><div style="font-size:12px;font-weight:800" id="rollInfo"></div></div></div>';
     h += '<div id="dres">Lancez les dés : avancez sur le plateau et touchez des bonus ! Un lancer est offert toutes les 4 minutes (5 maximum).</div>';
     h += '<div class="note">Cases : 💵 recette (minutes de revenus) · ❓ carte Fortune · 🧾 impôts (2-3 % de la trésorerie) · 📈⚡ boosts · 🔍 contrôle fiscal (-1 lancer) · 🤝 nouveau conseiller · 🏁 prime à chaque tour.</div>';
-    b.innerHTML = h; b.onclick = null; tokenAt = -1; placeToken(s.dice.pos); $('rollBtn').onclick = function () { Sfx.init(); diceRoll(); }; diceInfo();
+    b.innerHTML = h; b.onclick = null; tokenAt = -1; placeToken(s.dice.pos); $('rollBtn').onclick = function () { Sfx.init(); closePanel(); diceRoll(); }; diceInfo();
   }
   function diceInfo() { var e = $('rollInfo'); if (!e) return; var d = S().dice; e.textContent = 'Lancers : ' + d.rolls + '/' + Engine.MAX_ROLLS + (d.rolls < Engine.MAX_ROLLS ? ' · +1 dans ' + Engine.fmtTime((d.next - Engine.now()) / 1000) : ''); var bt = $('rollBtn'); if (bt) { bt.classList.toggle('no', d.rolls <= 0 || diceBusy); } }
   function placeToken(pos) {
     var old = document.querySelector('.tok'); if (old) old.remove(); var cur = document.querySelector('.tile.cur'); if (cur) cur.classList.remove('cur');
     var t = document.querySelector('.tile[data-t="' + pos + '"]'); if (!t) return; var k = document.createElement('div'); k.className = 'tok'; t.appendChild(k); t.classList.add('cur'); tokenAt = pos;
   }
-  function say(t) { var e = $('dres'); if (e) e.textContent = t; }
-  function walk(path, i, done) { if (i >= path.length) { done(); return; } placeToken(path[i]); S().dice.pos = path[i]; Sfx.step(); setTimeout(function () { walk(path, i + 1, done); }, 210); }
+  function say(t) { var e = $('dres'); if (e) e.textContent = t; var r = $('rollres'); if (r) { r.textContent = t; r.style.display = 'block'; clearTimeout(say.t); say.t = setTimeout(function () { r.style.display = 'none'; }, 5200); } }
+  function walk(path, i, done) {
+    if (i >= path.length) { done(); return; }
+    S().dice.pos = path[i]; placeToken(path[i]); Sfx.step();
+    Gfx.pawnGo(path[i], 0.34, function () { walk(path, i + 1, done); });
+  }
   function diceRoll() {
-    if (diceBusy) return; var r = Engine.rollDice(); if (!r) { Sfx.err(); toast('Plus de lancers : patientez ou jouez pour en gagner !'); return; }
-    diceBusy = true; Sfx.roll(); var d1 = $('d1'), d2 = $('d2'), n = 0;
-    if (d1) { d1.classList.add('roll'); d2.classList.add('roll'); }
-    var iv = setInterval(function () { n++; if ($('d1')) { $('d1').textContent = FACE[1 + Math.floor(Math.random() * 6)]; $('d2').textContent = FACE[1 + Math.floor(Math.random() * 6)]; } }, 75);
+    if (diceBusy || Gfx.pawnMoving()) return; var r = Engine.rollDice(); if (!r) { Sfx.err(); toast('Plus de lancers : patientez ou jouez pour en gagner !'); return; }
+    diceBusy = true; Sfx.roll(); var ov = $('dover'), n = 0; ov.style.display = 'flex'; $('od1').classList.add('roll'); $('od2').classList.add('roll'); if ($('d1')) { $('d1').classList.add('roll'); $('d2').classList.add('roll'); }
+    var p0 = Gfx.pawnPos(); Gfx.focusPoint(p0.x, p0.z);
+    var iv = setInterval(function () { n++; var a = FACE[1 + Math.floor(Math.random() * 6)], b2 = FACE[1 + Math.floor(Math.random() * 6)]; $('od1').textContent = a; $('od2').textContent = b2; if ($('d1')) { $('d1').textContent = a; $('d2').textContent = b2; } }, 75);
     diceInfo(); say('Les dés roulent…');
     setTimeout(function () {
-      clearInterval(iv); if ($('d1')) { $('d1').textContent = FACE[r.d1]; $('d2').textContent = FACE[r.d2]; $('d1').classList.remove('roll'); $('d2').classList.remove('roll'); }
-      say('Vous faites ' + (r.d1 + r.d2) + ' !'); walk(r.path, 0, function () { land(r, r.path[r.path.length - 1], 0); });
-    }, 700);
+      clearInterval(iv); [$('od1'), $('od2'), $('d1'), $('d2')].forEach(function (d, k) { if (d) { d.textContent = FACE[k % 2 ? r.d2 : r.d1]; d.classList.remove('roll'); } });
+      say('Vous faites ' + (r.d1 + r.d2) + ' ! Votre pion avance…');
+      setTimeout(function () { ov.style.display = 'none'; walk(r.path, 0, function () { land(r, r.path[r.path.length - 1], 0); }); }, 700);
+    }, 800);
   }
   function land(r, pos, depth) {
     var extra = '';
@@ -1346,10 +1457,10 @@ var UI = (function () {
     var o = Engine.landOn(pos); S().dice.pos = pos;
     if (o.k === 'cash' || o.k === 'start') { Sfx.claim(); } else if (o.k === 'tax' || o.k === 'jail') Sfx.err(); else Sfx.win();
     say(extra + (o.card ? '🃏 Fortune : ' : '') + o.text);
-    if (o.amt && (o.k === 'cash' || o.k === 'chance')) floatText(window.innerWidth / 2, window.innerHeight / 2, '+' + money(o.amt), 'big');
+    var pp = Gfx.cardPosAt ? null : null; if (o.amt && (o.k === 'cash' || o.k === 'chance')) floatText(window.innerWidth / 2, window.innerHeight / 2, '+' + money(o.amt), 'big');
     if (o.move && depth < 3) {
       var path = [], i; for (i = 1; i <= o.move; i++) path.push((pos + i) % Engine.BOARD.length);
-      setTimeout(function () { walk(path, 0, function () { land(null, path[path.length - 1], depth + 1); }); }, 1300);
+      setTimeout(function () { walk(path, 0, function () { land(null, path[path.length - 1], depth + 1); }); }, 1500);
     } else { diceBusy = false; diceInfo(); }
   }
 
@@ -1406,7 +1517,7 @@ var UI = (function () {
     });
   }
   function offlineModal(o) {
-    showModal('<div style="font-size:46px">🌙</div><h2>Bon retour, patron !</h2><p>Pendant votre absence (' + durTxt(o.secs) + '), vos commerces ont continué à travailler :</p><div class="big">+' + money(o.amt) + '</div>' + (o.capped ? '<p>(gains hors ligne limités à 8 h)</p>' : '') + '<div class="row"><button class="btn gold" data-close>Récupérer</button></div>', function () { Sfx.claim(); });
+    showModal('<div style="font-size:46px">🌙</div><h2>Bon retour, patron !</h2><p>Pendant votre absence (' + durTxt(o.secs) + '), vos commerces ont continué à travailler :</p><div class="big">+' + money(o.amt) + '</div>' + (o.capped ? '<p>(gains hors ligne : 50 % d\'efficacité, limités à 4 h)</p>' : '') + '<div class="row"><button class="btn gold" data-close>Récupérer</button></div>', function () { Sfx.claim(); });
   }
   function advisorModal(a, count) {
     showModal('<h2>Nouveau conseiller !</h2><img src="' + Portrait.get(a) + '" style="width:130px;height:130px;border-radius:18px;border:4px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)"><h2 class="rt' + a.rar + '" style="margin-top:8px">' + esc(a.name) + '</h2><p><b class="rt' + a.rar + '">' + Engine.RARITY[a.rar].n + '</b>' + (count > 1 ? ' · exemplaire n°' + count : '') + '</p><p>' + esc(Engine.advPerk(a, count)) + '</p><div class="row"><button class="btn" data-close>Super !</button></div>', function () { Sfx.win(); });
@@ -1424,6 +1535,7 @@ var UI = (function () {
       Sfx.err(); if (d.instant) toast((d.theft ? '🦹 Cambriolage ! -' : '🧾 Amende fiscale : -') + money(d.amt)); else toast(d.type.ic + ' ' + d.type.n + ' à ' + BIZ[d.i].name + ' !');
       if (d.i !== undefined) Gfx.focusPlot(d.i, false);
     }
+    else if (type === 'month') { toast('📅 Fin de mois : vie courante -' + money(d.living) + (d.tax ? ' · impôts -' + money(d.tax) : '')); if (S().debt > 0) Sfx.err(); if (curSheet === 'fin') renderPanel(); }
     else if (type === 'fixed') { Sfx.claim(); if (curSheet === 'news') renderPanel(); }
     else if (type === 'rival') { Sfx.err(); toast('⚔️ ' + Engine.RIVALS[d.r].name + ' attaque : ' + Engine.DISTRICTS[d.d].name + ' !'); }
     else if (type === 'rank') { toast(d.rk === 1 ? '🏆 Vous êtes n°1 !' : 'Classement : ' + d.rk + 'e'); }
@@ -1472,11 +1584,12 @@ var UI = (function () {
   function init() {
     coarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
     buildCards(); bindCards(); buildHud(); bindCanvas(); Engine.on(onEvent);
-    var s = S(); Sfx.set(s.set.sound, s.set.music); syncCity(false); Gfx.setView(window.innerHeight > window.innerWidth ? 38 : 22); var nb = nextToBuy(); if (nb <= 0) Gfx.focusPlot(0, true, 1); else Gfx.focusPlot(nb - 1, true, nb);
+    var s = S(); Sfx.set(s.set.sound, s.set.music); syncCity(false); Gfx.pawnSet(s.dice.pos); Gfx.setView(window.innerHeight > window.innerWidth ? 38 : 22); var nb = nextToBuy(); if (nb <= 0) Gfx.focusPlot(0, true, 1); else Gfx.focusPlot(nb - 1, true, nb);
     var done = function () { $('splash').style.display = 'none'; };
     $('splash').addEventListener('click', function () { if (started) return; started = true; Sfx.init(); Sfx.click(); done(); if (UI.pendingOffline) { offlineModal(UI.pendingOffline); UI.pendingOffline = null; } }, { once: false });
   }
   function update(dt, rdt) {
+    if (Gfx.pawnMoving()) { var pw = Gfx.pawnPos(); Gfx.focusPoint(pw.x, pw.z); }
     updateCards(); updateHud(dt); watchFps(rdt);
     // textes flottants des commerces en continu
     for (var i = 0; i < BIZ.length; i++) { if (S().biz[i].n <= 0 || Engine.time(i) >= 0.25) continue; contT[i] = (contT[i] || 0) + dt; if (contT[i] > 1.6) { var p = Gfx.cardPos(i); if (started && p.x > 0 && p.x < window.innerWidth) { floatText(p.x, p.y - 108, '+' + money(Engine.perSec(i) * contT[i])); Sfx.coin(); } contT[i] = 0; } }
